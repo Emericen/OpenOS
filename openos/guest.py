@@ -6,6 +6,7 @@ It handles two main functions:
 2. Receiving and executing input commands (keyboard/mouse) from the host
 """
 
+import time
 import socket
 import json
 import threading
@@ -20,12 +21,12 @@ class GuestService:
     This should be installed as a systemd service that starts on VM boot.
     """
 
-    def __init__(self, resolution=(1920, 1080), fps=120, output_port=8765, input_port=8766):
-        self.resolution = resolution
-        self.fps = fps
+    def __init__(self, output_port=8765, input_port=8766):
+        # Auto-detect resolution
+        self.resolution = _get_screen_resolution()
         self.output_port = output_port
         self.input_port = input_port
-        self.client_ip = None
+        self.host_ip = None
         self.ffmpeg_process = None
         self.streaming = False
 
@@ -36,26 +37,26 @@ class GuestService:
         # Socket for receiving input commands
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def set_client_ip(self, ip):
-        """Set the client IP to stream to."""
-        self.client_ip = ip
+    def set_host_ip(self, ip):
+        """Set the host IP to stream to."""
+        self.host_ip = ip
 
     def start_stream(self):
         """Start streaming the screen using ffmpeg."""
-        if not self.client_ip:
-            raise ValueError("Client IP not set")
+        if not self.host_ip:
+            raise ValueError("Host IP not set")
 
         # fmt: off
         cmd = [
             "ffmpeg", "-f", "x11grab", 
             "-video_size", f"{self.resolution[0]}x{self.resolution[1]}", 
-            "-framerate", str(self.fps), 
+            "-framerate", "120", 
             "-i", ":0.0", 
             "-vcodec", "libx264", 
             "-preset", "ultrafast", 
             "-f", "mpegts", 
             "-tune", "zerolatency", 
-            f"udp://{self.client_ip}:{self.output_port}"
+            f"udp://{self.host_ip}:{self.output_port}"
         ]
         # fmt: on
 
@@ -80,9 +81,14 @@ class GuestService:
             message = json.loads(data.decode())
 
             # Set client IP if not already set
-            if not self.client_ip:
-                self.client_ip = addr[0]
-                self.set_client_ip(self.client_ip)
+            if not self.host_ip:
+                self.host_ip = addr[0]
+                # Send resolution info in first response
+                info_message = json.dumps(
+                    {"type": "system_info", "data": {"resolution": self.resolution}}
+                )
+                self.control_socket.sendto(info_message.encode(), addr)
+                self.set_host_ip(self.host_ip)
                 self.start_stream()
 
             # Process input commands
@@ -100,23 +106,40 @@ class GuestService:
     def start(self):
         """Start both the input server and streaming (when client connects)."""
         self.start_input_server()
-        print(f"GuestService running. Waiting for client to connect on port {self.input_port}")
-        
+        print(
+            f"GuestService running. Waiting for client to connect on port {self.input_port}"
+        )
+
     def stop(self):
         """Stop streaming and close the socket."""
         self.stop_stream()
         # Note: We're not closing the control socket here as it should stay alive
         # until the program exits
 
+
+def _get_screen_resolution():
+    """Get the current screen resolution using xrandr"""
+    try:
+        output = subprocess.check_output(["xrandr"]).decode("utf-8")
+        # Find the current resolution from the output
+        for line in output.split("\n"):
+            if "*" in line:  # Current resolution has an asterisk
+                resolution = line.split()[0]
+                width, height = map(int, resolution.split("x"))
+                return width, height
+    except:
+        # Fallback to default if detection fails
+        return 1920, 1080
+
+
 # Example usage when running inside VM
 if __name__ == "__main__":
     service = GuestService()
     service.start()
-    
+
     # Keep the main thread alive
     try:
         while True:
-            import time
             time.sleep(1)
     except KeyboardInterrupt:
         service.stop()

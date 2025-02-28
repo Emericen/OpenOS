@@ -1,5 +1,4 @@
-# from openos.interfaces.gui import GUIInterface
 from openos.interfaces.headless import HeadlessInterface
+from openos.interfaces.pygame import PygameInterface
 
-# __all__ = ["GUIInterface", "HeadlessInterface"]
-__all__ = ["HeadlessInterface"]
+__all__ = ["PygameInterface", "HeadlessInterface"]

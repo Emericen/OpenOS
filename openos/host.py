@@ -3,18 +3,14 @@ import json
 import subprocess
 import time
 import platform
-import requests
 import numpy as np
-from tqdm import tqdm
 from pathlib import Path
+from huggingface_hub import hf_hub_download
 
 START_WAIT_TIME = 10  # seconds
-UBUNTU_ARM_URL = (
-    "https://huggingface.co/datasets/xlangai/ubuntu_osworld/resolve/main/Ubuntu-arm.zip"
-)
-UBUNTU_X86_URL = (
-    "https://huggingface.co/datasets/xlangai/ubuntu_osworld/resolve/main/Ubuntu-x86.zip"
-)
+REPO_ID = "xlangai/ubuntu_osworld"
+UBUNTU_ARM_FILENAME = "Ubuntu-arm.zip"
+UBUNTU_X86_FILENAME = "Ubuntu-x86.zip"
 # Create cache directory
 CACHE_DIR = Path.home() / ".cache" / "openos"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -25,20 +21,17 @@ class HostService:
 
     def __init__(
         self,
-        # vm_path: str = None,
-        resolution: tuple[int, int] = (1920, 1080),
-        fps: int = 120,
         output_port: int = 8765,
         input_port: int = 8766,
     ):
         self.vm_path = self._install_ubuntu()
-        self.resolution = resolution
-        self.fps = fps
+        # self.resolution = resolution
         self.output_port = output_port
         self.input_port = input_port
         self.server_ip = None
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.ffmpeg_process = None
+        self.resolution = None
 
     def start(self):
         subprocess.run(["vmrun", "start", self.vm_path])
@@ -62,15 +55,12 @@ class HostService:
         subprocess.run(["vmrun", "reset", self.vm_path])
 
     def save(self, snapshot_name="snapshot"):
-        """Save the current state of the VM."""
         subprocess.run(["vmrun", "saveSnapshot", self.vm_path, snapshot_name])
 
     def load(self, snapshot_name="snapshot"):
-        """Load a saved state of the VM."""
         subprocess.run(["vmrun", "loadSnapshot", self.vm_path, snapshot_name])
 
     def send_input(self, action_type, data):
-        """Send input actions to the VM server."""
         if not self.server_ip:
             raise ValueError("VM not started or IP address not available")
 
@@ -84,53 +74,34 @@ class HostService:
         return result.stdout.strip()
 
     def _install_ubuntu(self):
+        # First check if VM is already unpacked
+        vmx_files = list(CACHE_DIR.glob("*.vmx"))
+        if vmx_files:
+            self.vm_path = str(vmx_files[0])
+            print(f"Using existing VM image at {self.vm_path}")
+            return self.vm_path
+
         # Check platform architecture
         machine = platform.machine().lower()
         if machine in ["arm64", "aarch64"]:
-            url = UBUNTU_ARM_URL
+            filename = UBUNTU_ARM_FILENAME
         elif machine in ["amd64", "x86_64"]:
-            url = UBUNTU_X86_URL
+            filename = UBUNTU_X86_FILENAME
         else:
             raise Exception("Unsupported platform or architecture.")
 
-        # Create cache directory
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
-        zip_path = CACHE_DIR / "ubuntu.zip"
-
-        # Download with progress bar
-        print(f"Downloading Ubuntu VM image from {url}")
-        response = requests.get(url, stream=True)
-        total_size = int(response.headers.get("content-length", 0))
-
-        with (
-            open(zip_path, "wb") as f,
-            tqdm(
-                desc="Downloading",
-                total=total_size,
-                unit="B",
-                unit_scale=True,
-                unit_divisor=1024,
-            ) as bar,
-        ):
-            for data in response.iter_content(chunk_size=1024):
-                size = f.write(data)
-                bar.update(size)
+        # Download using huggingface_hub
+        print(f"Downloading Ubuntu VM image from {REPO_ID}")
+        zip_path = hf_hub_download(
+            repo_id=REPO_ID, filename=filename, cache_dir=CACHE_DIR
+        )
 
         # Extract with subprocess
         print(f"Extracting VM image to {CACHE_DIR}")
         subprocess.run(["unzip", "-o", str(zip_path), "-d", str(CACHE_DIR)])
 
-        # Remove zip file
-        print("Cleaning up downloaded zip file")
-        zip_path.unlink()
-
-        # Return path to VM file
+        # Find the VMX file
         vmx_files = list(CACHE_DIR.glob("*.vmx"))
-        if not vmx_files:
-            print("No .vmx file found in the extracted directory")
-            raise Exception("No .vmx file found in the extracted directory")
-
         self.vm_path = str(vmx_files[0])
         print(f"VM image installed at {self.vm_path}")
         return self.vm_path
