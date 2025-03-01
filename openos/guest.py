@@ -7,9 +7,8 @@ It handles two main functions:
 """
 
 import time
-import socket
 import json
-import threading
+import socket
 import subprocess
 from pynput import keyboard, mouse
 
@@ -22,30 +21,57 @@ class GuestService:
     """
 
     def __init__(self, video_port=8765, control_port=8766):
-        self._get_screen_resolution()
+
+        self.host_ip = None
         self.video_port = video_port
         self.control_port = control_port
-        self.host_ip = None
+
         self.ffmpeg_process = None
-        self.streaming = False
+        self.control_socket = None
 
         # Input controllers
         self.keyboard_controller = keyboard.Controller()
         self.mouse_controller = mouse.Controller()
 
+        self._get_screen_resolution()
         # Socket for receiving input commands
-        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def start(self):
-        """Start both the input server and streaming (when client connects)."""
+        # fmt: off
+        cmd = [
+            "ffmpeg", "-f", "x11grab", 
+            "-video_size", f"{self.resolution[0]}x{self.resolution[1]}", 
+            "-framerate", "120", 
+            "-i", ":0.0", 
+            "-vcodec", "libx264", 
+            "-preset", "ultrafast", 
+            "-f", "mpegts", 
+            "-tune", "zerolatency", 
+            f"udp://{self.host_ip}:{self.video_port}"
+        ]
+        # fmt: on
+        self.ffmpeg_process = subprocess.Popen(cmd)
+
+        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind(("0.0.0.0", self.control_port))
-        threading.Thread(target=self._handle_input, daemon=True).start()
+
+    def listen_for_input(self):
+        data, addr = self.control_socket.recvfrom(1024)
+        message = json.loads(data.decode())
+
+        if message["type"] == "debug":
+            print(f"[{addr}]: {message['data']}")
 
     def stop(self):
         """Stop streaming and close the socket."""
-        if self.streaming and self.ffmpeg_process:
+        if self.control_socket:
+            self.control_socket.close()
+            self.control_socket = None
+
+        if self.ffmpeg_process:
             self.ffmpeg_process.terminate()
-            self.streaming = False
+            self.ffmpeg_process = None
 
     def _handle_input(self):
         """Process incoming input commands."""
@@ -79,27 +105,6 @@ class GuestService:
             elif message["type"] == "mouseup":
                 self.mouse_controller.release(message["data"])
 
-    def _start_stream(self):
-        """Start streaming the screen using ffmpeg."""
-
-        # fmt: off
-        cmd = [
-            "ffmpeg", "-f", "x11grab", 
-            "-video_size", f"{self.resolution[0]}x{self.resolution[1]}", 
-            "-framerate", "120", 
-            "-i", ":0.0", 
-            "-vcodec", "libx264", 
-            "-preset", "ultrafast", 
-            "-f", "mpegts", 
-            "-tune", "zerolatency", 
-            f"udp://{self.host_ip}:{self.video_port}"
-        ]
-        # fmt: on
-
-        self.ffmpeg_process = subprocess.Popen(cmd)
-        self.streaming = True
-
-
     def _get_screen_resolution(self):
         """Get the current screen resolution using xrandr"""
         try:
@@ -123,7 +128,7 @@ if __name__ == "__main__":
     # Keep the main thread alive
     try:
         while True:
-            time.sleep(1)
+            service.listen_for_input()
     except KeyboardInterrupt:
         service.stop()
         print("GuestService stopped")
