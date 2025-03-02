@@ -47,6 +47,18 @@ class GuestService:
         if message["type"] == "setup":
             self.host_ip = addr[0]
             print(f"Streaming to host at {self.host_ip}.")
+            
+            # Send resolution back to host
+            response = {
+                "type": "resolution",
+                "data": {
+                    "width": self.resolution[0],
+                    "height": self.resolution[1]
+                }
+            }
+            self.control_socket.sendto(json.dumps(response).encode(), (self.host_ip, self.control_port))
+            
+            # Start streaming after sending resolution
             self._start_stream()
         elif message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
@@ -111,7 +123,8 @@ def _get_screen_resolution():
     except:
         # Fallback to default if detection fails
         return (1920, 1080)
-    
+
+
 def _get_button_from_str(button_str):
     """Get the button from the string"""
     if button_str == "mouse.Button.left":
@@ -122,13 +135,14 @@ def _get_button_from_str(button_str):
         return mouse.Button.middle
     return button_str
 
+
 def _get_key_from_str(key_str):
     if key_str.startswith("Key."):
         key_name = key_str.split(".")[1]
         return getattr(keyboard.Key, key_name)
     return key_str
 
-# Example usage when running inside VM
+
 if __name__ == "__main__":
     service = GuestService()
     service.start()

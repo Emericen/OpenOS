@@ -1,9 +1,8 @@
-import socket
-import json
-import subprocess
 import time
+import json
+import socket
 import platform
-import numpy as np
+import subprocess
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
@@ -19,36 +18,52 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 class HostService:
     """Manages the virtual machine and communication with the VM server."""
 
-    def __init__(
-        self,
-        output_port: int = 8765,
-        input_port: int = 8766,
-    ):
-        self.vm_path = self._install_ubuntu()
-        # self.resolution = resolution
-        self.output_port = output_port
-        self.input_port = input_port
-        self.server_ip = None
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    def __init__(self, video_port: int = 8765, control_port: int = 8766):
+        self.guest_ip = None
+        self.video_port = video_port
+        self.control_port = control_port
+
         self.ffmpeg_process = None
+        self.control_socket = None
+
+        self.vm_path = self._install_ubuntu()
         self.resolution = None
 
     def start(self):
         subprocess.run(["vmrun", "start", self.vm_path])
+        self._wait_for_ip_address()
 
-        # Wait for VM to start
-        while True:
-            try:
-                self.server_ip = self.provider.get_ip()
-                break
-            except Exception as e:
-                print(f"Waiting for VM to start... {e}")
-                time.sleep(START_WAIT_TIME)
-
-        self.server_ip = self.provider.get_ip()
-        return self.server_ip
+        # Set up the control socket
+        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        
+        # Send setup message to guest and wait for resolution response
+        self._send_data({"type": "setup", "data": {}})
+        
+        # Wait for resolution info from guest
+        self._receive_resolution()
+        
+        # Now we can start ffmpeg with the correct resolution
+        # fmt: off
+        cmd = [
+            "ffmpeg", "-fflags", "nobuffer", 
+            "-f", "mpegts", 
+            "-i", f"udp://{self.guest_ip}:{self.video_port}", 
+            "-f", "rawvideo", 
+            "-flags", "low_delay", 
+            "-avioflags", "direct", 
+            "-pix_fmt", "rgb24", 
+            "-vf", "format=rgb24", 
+            "pipe:1"
+        ]
+        # fmt: on
+        self.ffmpeg_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
     def stop(self):
+        if self.ffmpeg_process:
+            self.ffmpeg_process.terminate()
+            self.ffmpeg_process = None
+        if self.control_socket:
+            self.control_socket.close()
         subprocess.run(["vmrun", "stop", self.vm_path])
 
     def reset(self):
@@ -60,18 +75,29 @@ class HostService:
     def load(self, snapshot_name="snapshot"):
         subprocess.run(["vmrun", "loadSnapshot", self.vm_path, snapshot_name])
 
-    def send_input(self, action_type, data):
-        if not self.server_ip:
+    def move_mouse(self, dx, dy):
+        self._send_data({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
+
+    def button_down(self, button):
+        self._send_data({"type": "button_down", "data": {"button": button}})
+
+    def button_up(self, button):
+        self._send_data({"type": "button_up", "data": {"button": button}})
+
+    def scroll(self, dx, dy):
+        self._send_data({"type": "scroll", "data": {"dx": dx, "dy": dy}})
+
+    def key_down(self, key):
+        self._send_data({"type": "key_down", "data": {"key": key}})
+
+    def key_up(self, key):
+        self._send_data({"type": "key_up", "data": {"key": key}})
+
+    def _send_data(self, data: dict):
+        if not self.guest_ip:
             raise ValueError("VM not started or IP address not available")
-
-        message = json.dumps({"type": action_type, "data": data})
-        self.socket.sendto(message.encode(), (self.server_ip, self.input_port))
-
-    def get_ip(self):
-        result = subprocess.run(
-            ["vmrun", "getGuestIPAddress", self.vm_path], capture_output=True, text=True
-        )
-        return result.stdout.strip()
+        data = json.dumps(data)
+        self.control_socket.sendto(data.encode(), (self.guest_ip, self.control_port))
 
     def _install_ubuntu(self):
         # First check if VM is already unpacked
@@ -106,47 +132,52 @@ class HostService:
         print(f"VM image installed at {self.vm_path}")
         return self.vm_path
 
-    def start_receiving(self):
-        """Start receiving the ffmpeg stream from VM."""
-        if not self.server_ip:
-            raise ValueError("VM not started or IP address not available")
+    def _wait_for_ip_address(self):
+        while True:
+            try:
+                ip_address = subprocess.run(
+                    ["vmrun", "getGuestIPAddress", self.vm_path],
+                    capture_output=True,
+                    text=True,
+                )
+                self.guest_ip = ip_address.stdout.strip()
+                break
+            except Exception as e:
+                print(f"Waiting for VM to start... {e}")
+                time.sleep(START_WAIT_TIME)
 
-        # fmt: off
-        cmd = [
-            "ffmpeg", "-fflags", "nobuffer", 
-            "-f", "mpegts", 
-            "-i", f"udp://{self.server_ip}:{self.output_port}", 
-            "-f", "rawvideo", 
-            "-flags", "low_delay", 
-            "-avioflags", "direct", 
-            "-pix_fmt", "rgb24", 
-            "-vf", "format=rgb24", 
-            "pipe:1"
-        ]
-        # fmt: on
+    def _receive_resolution(self):
+        """Wait for resolution information from the guest."""
+        # Set a timeout for receiving data
+        self.control_socket.settimeout(5)
+        try:
+            data, addr = self.control_socket.recvfrom(1024)
+            message = json.loads(data.decode())
+            if message["type"] == "resolution":
+                width = message["data"]["width"]
+                height = message["data"]["height"]
+                self.resolution = (width, height)
+                print(f"Received resolution from guest: {width}x{height}")
+        except socket.timeout:
+            print("Timeout waiting for resolution, using default")
+            self.resolution = (1920, 1080)  # Default fallback
+        finally:
+            # Reset to non-blocking mode
+            self.control_socket.settimeout(None)
 
-        self.ffmpeg_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-        return self.ffmpeg_process
+    # def read_frame(self):
+    #     """Read a single frame from the VM stream."""
+    #     if not self.ffmpeg_process:
+    #         raise ValueError("Stream receiving not started")
 
-    def read_frame(self):
-        """Read a single frame from the VM stream."""
-        if not self.ffmpeg_process:
-            raise ValueError("Stream receiving not started")
+    #     raw_image = self.ffmpeg_process.stdout.read(
+    #         self.resolution[0] * self.resolution[1] * 3
+    #     )
+    #     if len(raw_image) == 0:
+    #         return None
 
-        raw_image = self.ffmpeg_process.stdout.read(
-            self.resolution[0] * self.resolution[1] * 3
-        )
-        if len(raw_image) == 0:
-            return None
-
-        # Convert to numpy array
-        frame = np.frombuffer(raw_image, dtype=np.uint8).reshape(
-            (self.resolution[1], self.resolution[0], 3)
-        )
-        return frame
-
-    def stop_receiving(self):
-        """Stop receiving the ffmpeg stream."""
-        if self.ffmpeg_process:
-            self.ffmpeg_process.terminate()
-            self.ffmpeg_process = None
+    #     # Convert to numpy array
+    #     frame = np.frombuffer(raw_image, dtype=np.uint8).reshape(
+    #         (self.resolution[1], self.resolution[0], 3)
+    #     )
+    #     return frame
