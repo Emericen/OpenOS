@@ -40,15 +40,8 @@ class GuestService:
 
     def listen_for_input(self):
         data, addr = self.control_socket.recvfrom(1024)
-        if self.host_ip and addr[0] != self.host_ip:
-            return
-
         message = json.loads(data.decode())
-        if message["type"] == "setup":
-            self.host_ip = addr[0]
-            self._start_stream()
-            print(f"Streaming to host at {self.host_ip}.")
-        elif message["type"] == "move_mouse":
+        if message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.move(dx, dy)
         elif message["type"] == "position_mouse":

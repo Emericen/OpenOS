@@ -1,5 +1,3 @@
-import os
-import re
 import time
 import json
 import socket
@@ -26,28 +24,32 @@ class HostService:
         self.control_socket = None
 
         # self.vm_path = get_ubuntu_vm_path(cache_dir=cache_dir)
+        self.cache_dir = (
+            "/Users/eddyliang/Desktop/workfile/OSWorld/vmware_vm_data/Ubuntu0/"
+        )
         self.vm_path = "/Users/eddyliang/Desktop/workfile/OSWorld/vmware_vm_data/Ubuntu0/Ubuntu0.vmx"
         self.resolution = None
 
     def start(self):
         # Start the guest
+        print(f"Starting VM: {self.vm_path}")
         subprocess.run(["vmrun", "start", self.vm_path])
-        self._wait_for_ip_address()
+        print("waiting ip address...")
+        self.guest_ip = self._get_vm_ip(self.vm_path)
+        print(f"VM started. IP address: {self.guest_ip}")
 
         # Start the guest service
-        cmd = ["cd ~/OpenOS", "python guest.py"]
-        _ = self._execute_commands_in_guest(cmd)
+        print("running guest.py...")
+        cmd = ["cd ~/OpenOS", "python openos/guest.py"]
+        self._execute_commands_in_guest(cmd)
 
-        # Get the resolution of the guest
-        cmd = ["DISPLAY=:0 xdpyinfo | grep dimensions"]
-        output_str = self._execute_commands_in_guest(cmd)
-        self.resolution = self._parse_resolution(output_str)
+        self.resolution = (1920, 1080)  # TODO: make dynamic (?)
 
         # Set up the control socket
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._send_data({"type": "setup", "data": {}})
 
         # fmt: off
+        print("starting ffmpeg...")
         cmd = [
             "ffmpeg", "-fflags", "nobuffer", 
             "-f", "mpegts", 
@@ -79,6 +81,9 @@ class HostService:
     def load(self, snapshot_name="snapshot"):
         subprocess.run(["vmrun", "loadSnapshot", self.vm_path, snapshot_name])
 
+    def position_mouse(self, x, y):
+        self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})
+
     def move_mouse(self, dx, dy):
         self._send_data({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
 
@@ -104,51 +109,21 @@ class HostService:
         self.control_socket.sendto(data.encode(), (self.guest_ip, self.control_port))
 
     def _execute_commands_in_guest(self, commands: list[str]):
-        result = None
-        # Determine host output file path based on current cache_dir
-        host_temp_output_file = os.path.join(self.vm_path.parent, "output.txt")
-
-        # Run commands in guest and save output to file
+        # NOTE: no output can be seen on host
         combined = " && ".join(commands)
-        cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "{combined} > {GUEST_TEMP_OUTPUT_FILE} 2>&1'
+        cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "{combined}"'
         subprocess.run(cmd, shell=True)
 
-        # Copy output file from guest to host
-        copy_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} copyFileFromGuestToHost "{self.vm_path}" "{GUEST_TEMP_OUTPUT_FILE}" "{host_temp_output_file}"'
-        subprocess.run(copy_cmd, shell=True)
-
-        # Delete output file from guest
-        delete_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "rm {GUEST_TEMP_OUTPUT_FILE}"'
-        subprocess.run(delete_cmd, shell=True)
-
-        # Read output file in host
-        with open(host_temp_output_file, "r") as file:
-            result = file.read()
-
-        # Delete output file in host
-        os.remove(host_temp_output_file)
-        return result
-
-    def _wait_for_ip_address(self):
-        while True:
-            try:
-                ip_address = subprocess.run(
-                    ["vmrun", "getGuestIPAddress", self.vm_path],
-                    capture_output=True,
-                    text=True,
-                )
-                self.guest_ip = ip_address.stdout.strip()
-                break
-            except Exception as e:
-                print(f"Waiting for VM to start... {e}")
-                time.sleep(START_WAIT_TIME)
-
-    def _parse_resolution(result: str):
-        match = re.search(r"(\d+)x(\d+)", result)
-        if match:
-            return int(match.group(1)), int(match.group(2))
+    def _get_vm_ip(self, vm_path: str):
+        command = f'vmrun getGuestIPAddress "{vm_path}" -wait'
+        result = subprocess.run(
+            command, shell=True, text=True, capture_output=True, encoding="utf-8"
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
         else:
-            return 1920, 1080  # TODO: hacky. handle errors better.
+            print(f"Failed to get the IP of virtual machine: {result.stderr}")
+            return None
 
     def read_frame(self):
         """Read a single frame from the VM stream."""
@@ -166,3 +141,31 @@ class HostService:
             (self.resolution[1], self.resolution[0], 3)
         )
         return frame
+
+
+if __name__ == "__main__":
+    try:
+        host = HostService()
+        host.start()
+        total_time = 120
+
+        direction = 0
+        for remaining in range(total_time, 0, -1):
+            print(f"\rTime remaining: {remaining:3d} seconds", end="")
+
+            if direction == 0:
+                host.move_mouse(100, 0)
+            elif direction == 1:
+                host.move_mouse(0, 100)
+            elif direction == 2:
+                host.move_mouse(-100, 0)
+            elif direction == 3:
+                host.move_mouse(0, -100)
+            direction = (direction + 1) % 4
+
+            time.sleep(1)
+        print("\nShutting down...")
+        host.stop()
+    except KeyboardInterrupt:
+        host.stop()
+        print("GuestService stopped")
