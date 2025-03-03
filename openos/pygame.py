@@ -1,9 +1,7 @@
-import pygame
+import openos.pygame as pygame
 from openos.host import HostService
-from openos.interfaces.interface import Interface
 
-
-class PygameInterface(Interface):
+class PygameInterface:
     """Interface using Pygame for human interaction."""
 
     def __init__(self, host: HostService):

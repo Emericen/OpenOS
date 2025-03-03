@@ -1,18 +1,20 @@
+import os
+import re
 import time
 import json
 import socket
-import platform
 import subprocess
-from pathlib import Path
-from huggingface_hub import hf_hub_download
+import numpy as np
+
+from openos.utils import install_ubuntu
+from openos.utils import (
+    USER,
+    PASSWORD,
+    GUEST_OUTPUT_FILE,
+    HOST_OUTPUT_FILE,
+)
 
 START_WAIT_TIME = 10  # seconds
-REPO_ID = "xlangai/ubuntu_osworld"
-UBUNTU_ARM_FILENAME = "Ubuntu-arm.zip"
-UBUNTU_X86_FILENAME = "Ubuntu-x86.zip"
-# Create cache directory
-CACHE_DIR = Path.home() / ".cache" / "openos"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class HostService:
@@ -26,23 +28,27 @@ class HostService:
         self.ffmpeg_process = None
         self.control_socket = None
 
-        self.vm_path = self._install_ubuntu()
+        self.vm_path = install_ubuntu()
         self.resolution = None
 
     def start(self):
+        # Start the guest
         subprocess.run(["vmrun", "start", self.vm_path])
         self._wait_for_ip_address()
 
+        # Start the guest service
+        cmd = ["cd ~/OpenOS", "python guest.py"]
+        _ = self._execute_commands_in_guest(cmd)
+
+        # Get the resolution of the guest
+        cmd = ["DISPLAY=:0 xdpyinfo | grep dimensions"]
+        output_str = self._execute_commands_in_guest(cmd)
+        self.resolution = self._parse_resolution(output_str)
+
         # Set up the control socket
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        
-        # Send setup message to guest and wait for resolution response
         self._send_data({"type": "setup", "data": {}})
-        
-        # Wait for resolution info from guest
-        self._receive_resolution()
-        
-        # Now we can start ffmpeg with the correct resolution
+
         # fmt: off
         cmd = [
             "ffmpeg", "-fflags", "nobuffer", 
@@ -99,38 +105,28 @@ class HostService:
         data = json.dumps(data)
         self.control_socket.sendto(data.encode(), (self.guest_ip, self.control_port))
 
-    def _install_ubuntu(self):
-        # First check if VM is already unpacked
-        vmx_files = list(CACHE_DIR.glob("*.vmx"))
-        if vmx_files:
-            self.vm_path = str(vmx_files[0])
-            print(f"Using existing VM image at {self.vm_path}")
-            return self.vm_path
+    def _execute_commands_in_guest(self, commands: list[str]):
+        result = None
+        # Run commands in guest and save output to file
+        combined = " && ".join(commands)
+        cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "{combined} > {GUEST_OUTPUT_FILE} 2>&1'
+        subprocess.run(cmd, shell=True)
 
-        # Check platform architecture
-        machine = platform.machine().lower()
-        if machine in ["arm64", "aarch64"]:
-            filename = UBUNTU_ARM_FILENAME
-        elif machine in ["amd64", "x86_64"]:
-            filename = UBUNTU_X86_FILENAME
-        else:
-            raise Exception("Unsupported platform or architecture.")
+        # Copy output file from guest to host
+        copy_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} copyFileFromGuestToHost "{self.vm_path}" "{GUEST_OUTPUT_FILE}" "{HOST_OUTPUT_FILE}"'
+        subprocess.run(copy_cmd, shell=True)
 
-        # Download using huggingface_hub
-        print(f"Downloading Ubuntu VM image from {REPO_ID}")
-        zip_path = hf_hub_download(
-            repo_id=REPO_ID, filename=filename, cache_dir=CACHE_DIR
-        )
+        # Delete output file from guest
+        delete_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "rm {GUEST_OUTPUT_FILE}"'
+        subprocess.run(delete_cmd, shell=True)
 
-        # Extract with subprocess
-        print(f"Extracting VM image to {CACHE_DIR}")
-        subprocess.run(["unzip", "-o", str(zip_path), "-d", str(CACHE_DIR)])
+        # Read output file in host
+        with open(HOST_OUTPUT_FILE, "r") as file:
+            result = file.read()
 
-        # Find the VMX file
-        vmx_files = list(CACHE_DIR.glob("*.vmx"))
-        self.vm_path = str(vmx_files[0])
-        print(f"VM image installed at {self.vm_path}")
-        return self.vm_path
+        # Delete output file in host
+        os.remove(HOST_OUTPUT_FILE)
+        return result
 
     def _wait_for_ip_address(self):
         while True:
@@ -146,38 +142,26 @@ class HostService:
                 print(f"Waiting for VM to start... {e}")
                 time.sleep(START_WAIT_TIME)
 
-    def _receive_resolution(self):
-        """Wait for resolution information from the guest."""
-        # Set a timeout for receiving data
-        self.control_socket.settimeout(5)
-        try:
-            data, addr = self.control_socket.recvfrom(1024)
-            message = json.loads(data.decode())
-            if message["type"] == "resolution":
-                width = message["data"]["width"]
-                height = message["data"]["height"]
-                self.resolution = (width, height)
-                print(f"Received resolution from guest: {width}x{height}")
-        except socket.timeout:
-            print("Timeout waiting for resolution, using default")
-            self.resolution = (1920, 1080)  # Default fallback
-        finally:
-            # Reset to non-blocking mode
-            self.control_socket.settimeout(None)
+    def _parse_resolution(result: str):
+        match = re.search(r"(\d+)x(\d+)", result)
+        if match:
+            return int(match.group(1)), int(match.group(2))
+        else:
+            return 1920, 1080  # TODO: hacky. handle errors better.
 
-    # def read_frame(self):
-    #     """Read a single frame from the VM stream."""
-    #     if not self.ffmpeg_process:
-    #         raise ValueError("Stream receiving not started")
+    def read_frame(self):
+        """Read a single frame from the VM stream."""
+        if not self.ffmpeg_process:
+            raise ValueError("Stream receiving not started")
 
-    #     raw_image = self.ffmpeg_process.stdout.read(
-    #         self.resolution[0] * self.resolution[1] * 3
-    #     )
-    #     if len(raw_image) == 0:
-    #         return None
+        raw_image = self.ffmpeg_process.stdout.read(
+            self.resolution[0] * self.resolution[1] * 3
+        )
+        if len(raw_image) == 0:
+            return None
 
-    #     # Convert to numpy array
-    #     frame = np.frombuffer(raw_image, dtype=np.uint8).reshape(
-    #         (self.resolution[1], self.resolution[0], 3)
-    #     )
-    #     return frame
+        # Convert to numpy array
+        frame = np.frombuffer(raw_image, dtype=np.uint8).reshape(
+            (self.resolution[1], self.resolution[0], 3)
+        )
+        return frame

@@ -46,20 +46,8 @@ class GuestService:
         message = json.loads(data.decode())
         if message["type"] == "setup":
             self.host_ip = addr[0]
-            print(f"Streaming to host at {self.host_ip}.")
-            
-            # Send resolution back to host
-            response = {
-                "type": "resolution",
-                "data": {
-                    "width": self.resolution[0],
-                    "height": self.resolution[1]
-                }
-            }
-            self.control_socket.sendto(json.dumps(response).encode(), (self.host_ip, self.control_port))
-            
-            # Start streaming after sending resolution
             self._start_stream()
+            print(f"Streaming to host at {self.host_ip}.")
         elif message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.move(dx, dy)
