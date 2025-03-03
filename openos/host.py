@@ -40,7 +40,7 @@ class HostService:
 
         # Start the guest service
         print("running guest.py...")
-        cmd = ["cd ~/OpenOS", "python openos/guest.py"]
+        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/user/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
 
         self.resolution = (1920, 1080)  # TODO: make dynamic (?)
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     try:
         host = HostService()
         host.start()
-        total_time = 120
+        total_time = 30
 
         direction = 0
         for remaining in range(total_time, 0, -1):

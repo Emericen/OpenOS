@@ -11,6 +11,7 @@ import json
 import socket
 import subprocess
 from pynput import keyboard, mouse
+from utils import PASSWORD
 
 
 class GuestService:
@@ -23,7 +24,9 @@ class GuestService:
     def __init__(self, video_port=8765, control_port=8766):
         self.host_ip = None
         self.video_port = video_port
+        _allow_udp_on_port(video_port)
         self.control_port = control_port
+        _allow_udp_on_port(control_port)
 
         self.ffmpeg_process = None
         self.control_socket = None
@@ -41,6 +44,7 @@ class GuestService:
     def listen_for_input(self):
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
+        print(f"Received message from {addr}: {message}")
         if message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.move(dx, dy)
@@ -90,6 +94,18 @@ class GuestService:
         # fmt: on
         self.ffmpeg_process = subprocess.Popen(cmd)
 
+
+def _allow_udp_on_port(port: int):
+    # Set up firewall rules
+    try:
+        print("Setting up firewall rules...")
+        subprocess.run(
+            ["sudo", "-S", "ufw", "allow", f"{port}/udp"],
+            input=PASSWORD.encode(),
+            check=True,
+        )
+    except Exception as e:
+        print(f"Failed to set up firewall: {e}")
 
 def _get_screen_resolution():
     """Get the current screen resolution using xrandr"""
