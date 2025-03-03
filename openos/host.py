@@ -6,13 +6,8 @@ import socket
 import subprocess
 import numpy as np
 
-from openos.utils import install_ubuntu
-from openos.utils import (
-    USER,
-    PASSWORD,
-    GUEST_OUTPUT_FILE,
-    HOST_OUTPUT_FILE,
-)
+from openos.utils import get_ubuntu_vm_path
+from openos.utils import USER, PASSWORD, GUEST_TEMP_OUTPUT_FILE
 
 START_WAIT_TIME = 10  # seconds
 
@@ -20,7 +15,9 @@ START_WAIT_TIME = 10  # seconds
 class HostService:
     """Manages the virtual machine and communication with the VM server."""
 
-    def __init__(self, video_port: int = 8765, control_port: int = 8766):
+    def __init__(
+        self, video_port: int = 8765, control_port: int = 8766, cache_dir: str = None
+    ):
         self.guest_ip = None
         self.video_port = video_port
         self.control_port = control_port
@@ -28,7 +25,8 @@ class HostService:
         self.ffmpeg_process = None
         self.control_socket = None
 
-        self.vm_path = install_ubuntu()
+        # self.vm_path = get_ubuntu_vm_path(cache_dir=cache_dir)
+        self.vm_path = "/Users/eddyliang/Desktop/workfile/OSWorld/vmware_vm_data/Ubuntu0/Ubuntu0.vmx"
         self.resolution = None
 
     def start(self):
@@ -107,25 +105,28 @@ class HostService:
 
     def _execute_commands_in_guest(self, commands: list[str]):
         result = None
+        # Determine host output file path based on current cache_dir
+        host_temp_output_file = os.path.join(self.vm_path.parent, "output.txt")
+
         # Run commands in guest and save output to file
         combined = " && ".join(commands)
-        cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "{combined} > {GUEST_OUTPUT_FILE} 2>&1'
+        cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "{combined} > {GUEST_TEMP_OUTPUT_FILE} 2>&1'
         subprocess.run(cmd, shell=True)
 
         # Copy output file from guest to host
-        copy_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} copyFileFromGuestToHost "{self.vm_path}" "{GUEST_OUTPUT_FILE}" "{HOST_OUTPUT_FILE}"'
+        copy_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} copyFileFromGuestToHost "{self.vm_path}" "{GUEST_TEMP_OUTPUT_FILE}" "{host_temp_output_file}"'
         subprocess.run(copy_cmd, shell=True)
 
         # Delete output file from guest
-        delete_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "rm {GUEST_OUTPUT_FILE}"'
+        delete_cmd = f'vmrun -T ws -gu {USER} -gp {PASSWORD} runProgramInGuest "{self.vm_path}" /bin/bash -c "rm {GUEST_TEMP_OUTPUT_FILE}"'
         subprocess.run(delete_cmd, shell=True)
 
         # Read output file in host
-        with open(HOST_OUTPUT_FILE, "r") as file:
+        with open(host_temp_output_file, "r") as file:
             result = file.read()
 
         # Delete output file in host
-        os.remove(HOST_OUTPUT_FILE)
+        os.remove(host_temp_output_file)
         return result
 
     def _wait_for_ip_address(self):

@@ -1,23 +1,19 @@
 from openos.host import HostService
-from openos.interfaces import HeadlessInterface, PygameInterface
+from openos.pygame import PygameInterface
 
 
 class OpenOS:
     @staticmethod
-    def create(
-        interface="headless",
-        resolution=(1920, 1080),
-        fps=120,
-    ):
+    def create(video_port=8765, control_port=8766, human_player=False, cache_dir=None):
         """Factory method to create an OpenOS instance with the specified interface."""
-        host = HostService(resolution=resolution, fps=fps)
+        host = HostService(
+            video_port=video_port, control_port=control_port, cache_dir=cache_dir
+        )
 
-        if interface == "gui":
+        if human_player:
             return PygameInterface(host)
-        elif interface == "headless":
-            return HeadlessInterface(host)
         else:
-            raise ValueError(f"Unknown interface type: {interface}")
+            return host
 
 
 __all__ = ["OpenOS"]
