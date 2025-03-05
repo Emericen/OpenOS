@@ -3,25 +3,15 @@ import subprocess
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
-REPO_ID = "xlangai/ubuntu_osworld"
-UBUNTU_ARM_FILENAME = "Ubuntu-arm.zip"
-UBUNTU_X86_FILENAME = "Ubuntu-x86.zip"
+REPO_ID = "iiTzEddy/OpenOS"
+UBUNTU_ARM_FILENAME = "ubuntu-arm.zip"
+UBUNTU_X86_FILENAME = "ubuntu-x86.zip"
 
-USER = "user"
-PASSWORD = "password"
-
-DEFAULT_HOST_CACHE_DIR = Path.home() / ".cache" / "openos"
-GUEST_TEMP_OUTPUT_FILE = "/home/user/output.txt"
+USER = "Agent"
+PASSWORD = "visible-testbed"
 
 
-def get_ubuntu_vm_path(cache_dir: str = None) -> str:
-    # Create cache directory
-    if not cache_dir:
-        cache_dir = DEFAULT_HOST_CACHE_DIR
-    else:
-        cache_dir = Path(cache_dir)
-    cache_dir.mkdir(parents=True, exist_ok=True)
-
+def get_ubuntu_vm_path(cache_dir: Path) -> str:
     # First check if VM is already unpacked
     vmx_files = list(cache_dir.glob("*.vmx"))
     if vmx_files:
