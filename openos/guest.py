@@ -38,7 +38,6 @@ class GuestService:
         self.resolution = _get_screen_resolution()
 
     def start(self):
-        self._start_stream()
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind(("0.0.0.0", self.control_port))
 
