@@ -46,7 +46,11 @@ class GuestService:
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
         print(f"Received message from {addr}: {message}")
-        if message["type"] == "move_mouse":
+
+        if message["type"] == "start_stream":
+            self.host_ip = addr[0]
+            self._start_stream()
+        elif message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.move(dx, dy)
         elif message["type"] == "position_mouse":

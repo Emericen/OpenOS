@@ -25,6 +25,7 @@ class HostService:
     def start(self):
         subprocess.run(["vmrun", "start", self._vm_path])
         self._guest_ip = self._get_vm_ip(self._vm_path)
+        self._send_data({"type": "start_stream", "data": {}})
         print(f"VM started. IP address: {self._guest_ip}")
 
         self._start_guest_service()
