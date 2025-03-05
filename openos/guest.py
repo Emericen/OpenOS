@@ -38,6 +38,7 @@ class GuestService:
         self.resolution = _get_screen_resolution()
 
     def start(self):
+        self._start_stream()
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind(("0.0.0.0", self.control_port))
 
@@ -106,6 +107,7 @@ def _allow_udp_on_port(port: int):
         )
     except Exception as e:
         print(f"Failed to set up firewall: {e}")
+
 
 def _get_screen_resolution():
     """Get the current screen resolution using xrandr"""
