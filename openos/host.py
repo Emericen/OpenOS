@@ -72,7 +72,7 @@ class HostService:
         subprocess.run(cmd, shell=True)
 
     def _start_guest_service(self):
-        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/user/openos/openos/guest.py &"]
+        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
 
     def _get_vm_ip(self, vm_path: str):
@@ -127,31 +127,3 @@ class HostService:
             raise ValueError("VM not started or IP address not available")
         data = json.dumps(data)
         self._control_socket.sendto(data.encode(), (self._guest_ip, self._control_port))
-
-
-if __name__ == "__main__":
-    try:
-        host = HostService()
-        host.start()
-        total_time = 30
-
-        direction = 0
-        for remaining in range(total_time, 0, -1):
-            print(f"\rTime remaining: {remaining:3d} seconds", end="")
-
-            if direction == 0:
-                host.move_mouse(100, 0)
-            elif direction == 1:
-                host.move_mouse(0, 100)
-            elif direction == 2:
-                host.move_mouse(-100, 0)
-            elif direction == 3:
-                host.move_mouse(0, -100)
-            direction = (direction + 1) % 4
-
-            time.sleep(1)
-        print("\nShutting down...")
-        host.stop()
-    except KeyboardInterrupt:
-        host.stop()
-        print("GuestService stopped")

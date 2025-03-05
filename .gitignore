@@ -44,4 +44,5 @@ site/
 
 # Eddy's test files
 test.py
+experiments/
 playground.ipynb
