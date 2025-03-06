@@ -33,16 +33,19 @@ class HostService:
 
         # fmt: off
         print("starting ffmpeg...")
+        # cmd = [
+        #     "ffmpeg", "-fflags", "nobuffer", 
+        #     "-f", "mpegts", 
+        #     "-i", f"udp://{self._guest_ip}:{self._video_port}", 
+        #     "-f", "mpegts", 
+        #     "-flags", "low_delay", 
+        #     "-avioflags", "direct", 
+        #     "-pix_fmt", "rgb24", 
+        #     "-vf", "format=rgb24", 
+        #     "pipe:1"
+        # ]
         cmd = [
-            "ffmpeg", "-fflags", "nobuffer", 
-            "-f", "mpegts", 
-            "-i", f"udp://{self._guest_ip}:{self._video_port}", 
-            "-f", "mpegts", 
-            "-flags", "low_delay", 
-            "-avioflags", "direct", 
-            "-pix_fmt", "rgb24", 
-            "-vf", "format=rgb24", 
-            "pipe:1"
+            "ffplay -fflags nobuffer -flags low_delay -i udp://192.168.146.1:8765"
         ]
         # fmt: on
         self._ffmpeg_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
