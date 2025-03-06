@@ -26,10 +26,10 @@ class HostService:
         subprocess.run(["vmrun", "start", self._vm_path])
         self._guest_ip = self._get_vm_ip(self._vm_path)
         self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._send_data({"type": "start_stream", "data": {}})
         print(f"VM started. IP address: {self._guest_ip}")
 
         self._start_guest_service()
+        self._send_data({"type": "start_stream", "data": {}})
 
         # fmt: off
         print("starting ffmpeg...")
