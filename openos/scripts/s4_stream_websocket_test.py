@@ -12,14 +12,14 @@ if __name__ == "__main__":
 
     If Host is server and Guest is client, then:
         On Host run:
-            python openos/scripts/stream_websocket_test.py server --ip 0.0.0.0
+            python openos/scripts/s4_stream_websocket_test.py server --ip 0.0.0.0
         On Guest run:
-            python openos/scripts/stream_websocket_test.py client --ip 192.168.249.1
+            python openos/scripts/s4_stream_websocket_test.py client --ip 192.168.249.1
     If Guest is server and Host is client, then:
         On Guest run:
-            python openos/scripts/stream_websocket_test.py server --ip 0.0.0.0
+            python openos/scripts/s4_stream_websocket_test.py server --ip 0.0.0.0
         On Host run:
-            python openos/scripts/stream_websocket_test.py client --ip 192.168.249.128
+            python openos/scripts/s4_stream_websocket_test.py client --ip 192.168.249.128
 
         NOTE: run `sudo -S ufw allow 8765/tcp` on guest to whitelist inbound tcp traffic.
 

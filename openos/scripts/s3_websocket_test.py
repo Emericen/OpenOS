@@ -24,15 +24,15 @@ if __name__ == "__main__":
 
     For tests in this script, if Host is server and Guest is client, then:
         On Host run:
-            python openos/scripts/websocket_test.py server --host 0.0.0.0
+            python openos/scripts/s3_websocket_test.py server --ip 0.0.0.0
         On Guest run:
-            python openos/scripts/websocket_test.py client --host 192.168.249.1
+            python openos/scripts/s3_websocket_test.py client --ip 192.168.249.1
 
     If Host is client and Guest is server, then:
         On Host run:
-            python openos/scripts/websocket_test.py client --host 192.168.249.128
+            python openos/scripts/s3_websocket_test.py client --ip 192.168.249.128
         On Guest run:
-            python openos/scripts/websocket_test.py server --host 0.0.0.0
+            python openos/scripts/s3_websocket_test.py server --ip 0.0.0.0
 
         NOTE: run `sudo -S ufw allow 8765/tcp` on guest to whitelist inbound tcp traffic.
 
