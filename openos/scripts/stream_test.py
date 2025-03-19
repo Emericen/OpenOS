@@ -38,14 +38,16 @@ if __name__ == "__main__":
                 img_compressed = zlib.compress(img)
                 # size_in_mb = len(img_compressed) / (1024 * 1024)
                 # print(f"Compressed image size: {size_in_mb:.2f} MB")
-                node.send(img_compressed)
+                msg_size = len(img_compressed).to_bytes(4, 'big')  # 4 bytes for size
+                node.send(msg_size + img_compressed)  # Send size prefix + data
 
     elif args.mode == "receiver":
         node.bind(bind_address)
         node.listen()
         conn, addr = node.accept()
         while True:
-            data = conn.recv(1048576)
+            msg_size = int.from_bytes(conn.recv(4), 'big')  # Read size first
+            data = conn.recv(msg_size)
             img_uncompressed = zlib.decompress(data)
             img_decoded = cv2.imdecode(
                 np.frombuffer(img_uncompressed, np.uint8), cv2.IMREAD_COLOR
