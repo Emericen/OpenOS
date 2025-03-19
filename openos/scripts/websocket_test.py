@@ -16,7 +16,7 @@ def on_client_left(client, server):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WebSocketTest")
     parser.add_argument("mode", choices=["server", "client"], help="Run as server or client")
-    parser.add_argument("--host", default="127.0.0.1", help="Host address")
+    parser.add_argument("--host", default="0.0.0.0", help="Host address")
     parser.add_argument("--port", default=8765, type=int, help="Port number")
     args = parser.parse_args()
 
