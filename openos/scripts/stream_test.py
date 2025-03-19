@@ -29,7 +29,13 @@ if __name__ == "__main__":
 
     node = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     if args.mode == "sender":
-        node.connect(target_address)
+        while True:
+            try:
+                node.connect(target_address)
+                break
+            except ConnectionRefusedError:
+                print("Waiting for receiver...")
+                time.sleep(1)
         with mss() as sct:
             while True:
                 img = take_image(
@@ -39,11 +45,13 @@ if __name__ == "__main__":
                 # size_in_mb = len(img_compressed) / (1024 * 1024)
                 # print(f"Compressed image size: {size_in_mb:.2f} MB")
                 msg_size = len(img_compressed).to_bytes(4, 'big')  # 4 bytes for size
-                node.send(msg_size + img_compressed)  # Send size prefix + data
+                node.sendall(msg_size + img_compressed)  # Using sendall instead of send
 
     elif args.mode == "receiver":
-        node.bind(bind_address)
+        node.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # Allow reuse of address
+        node.bind(('0.0.0.0', args.port))
         node.listen()
+        print("Waiting for sender...")
         conn, addr = node.accept()
         while True:
             msg_size = int.from_bytes(conn.recv(4), 'big')  # Read size first
