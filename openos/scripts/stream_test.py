@@ -27,12 +27,9 @@ if __name__ == "__main__":
     target_address = (args.target, args.port)
     bind_address = (args.bind, args.port)
 
-    node = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    node.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    node.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    node.bind(bind_address)
-
+    node = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     if args.mode == "sender":
+        node.connect(target_address)
         with mss() as sct:
             while True:
                 img = take_image(
@@ -41,11 +38,14 @@ if __name__ == "__main__":
                 img_compressed = zlib.compress(img)
                 # size_in_mb = len(img_compressed) / (1024 * 1024)
                 # print(f"Compressed image size: {size_in_mb:.2f} MB")
-                node.sendto(img_compressed, target_address)
+                node.send(img_compressed)
 
     elif args.mode == "receiver":
+        node.bind(bind_address)
+        node.listen()
+        conn, addr = node.accept()
         while True:
-            data, addr = node.recvfrom(65507)
+            data = conn.recv(1048576)
             img_uncompressed = zlib.decompress(data)
             img_decoded = cv2.imdecode(
                 np.frombuffer(img_uncompressed, np.uint8), cv2.IMREAD_COLOR
