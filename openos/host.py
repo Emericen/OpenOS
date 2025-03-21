@@ -27,7 +27,7 @@ class HostService:
             # NOTE: ^ this is host's shared folder with guest
             dtype=np.uint8,
             mode="r",
-            shape=(1280, 720, 3),
+            shape=(1280, 720, 4),
             # NOTE: ^ resolution hardcoded for now. need to send from guest to host (?)
         )
 

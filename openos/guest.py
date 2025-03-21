@@ -33,7 +33,7 @@ class GuestService:
             # NOTE: ^ this is guest's shared folder with host
             dtype=np.uint8,
             mode="w+",
-            shape=(1280, 720, 3),
+            shape=(1280, 720, 4),
             # NOTE: ^ resolution hardcoded for now. can use xrandr to obtain.
         )
 
