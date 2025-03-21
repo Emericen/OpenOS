@@ -1,45 +1,55 @@
-"""
-This module runs INSIDE the virtual machine.
-
-It handles two main functions:
-1. Streaming the VM's screen to the host machine using ffmpeg
-2. Receiving and executing input commands (keyboard/mouse) from the host
-"""
-
-import time
 import json
 import socket
 import subprocess
+import numpy as np
+import mss
+import threading
 from pynput import keyboard, mouse
 from utils import PASSWORD
 
 
 class GuestService:
     """
-    Service that runs inside the virtual machine.
-    It streams the VM's screen to the host and processes input commands.
-    This should be installed as a systemd service that starts on VM boot.
+    This module runs INSIDE the virtual machine.
+
+    It handles two main functions:
+        1. Streaming the VM's screen to the host machine.
+        2. Receiving and executing input commands (keyboard & mouse etc.) from the host
     """
 
-    def __init__(self, video_port=8765, control_port=8766):
+    def __init__(self, control_port=8765):
         self.host_ip = None
-        self.video_port = video_port
-        _allow_udp_on_port(video_port)
         self.control_port = control_port
-        _allow_udp_on_port(control_port)
-
-        self.ffmpeg_process = None
         self.control_socket = None
+        _allow_udp_on_port(control_port)
 
         # Input controllers
         self.keyboard_controller = keyboard.Controller()
         self.mouse_controller = mouse.Controller()
 
-        self.resolution = _get_screen_resolution()
+        # Video "streaming"
+        self._frame_buffer = np.memmap(
+            filename="/mnt/hgfs/temp/frame.dat",
+            # NOTE: ^ this is guest's shared folder with host
+            dtype=np.uint8,
+            mode="w+",
+            shape=(1280, 720, 3),
+            # NOTE: ^ resolution hardcoded for now. can use xrandr to obtain.
+        )
 
     def start(self):
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind(("0.0.0.0", self.control_port))
+        self._stream_thread = threading.Thread(target=self._start_stream)
+        self._stream_thread.start()
+
+    def _start_stream(self):
+        with mss() as sct:
+            while True:
+                frame = sct.grab(sct.monitors[1])
+                frame = np.array(frame)
+                self._frame_buffer[:] = frame[:]
+                self._frame_buffer.flush()
 
     def listen_for_input(self):
         data, addr = self.control_socket.recvfrom(1024)
@@ -78,25 +88,12 @@ class GuestService:
         if self.control_socket:
             self.control_socket.close()
             self.control_socket = None
-        if self.ffmpeg_process:
-            self.ffmpeg_process.terminate()
-            self.ffmpeg_process = None
-
-    def _start_stream(self):
-        # fmt: off
-        cmd = [
-            "ffmpeg", "-f", "x11grab", 
-            "-video_size", f"{self.resolution[0]}x{self.resolution[1]}", 
-            "-framerate", "120", 
-            "-i", ":0.0", 
-            "-vcodec", "libx264", 
-            "-preset", "ultrafast", 
-            "-f", "mpegts", 
-            "-tune", "zerolatency", 
-            f"udp://{self.host_ip}:{self.video_port}"
-        ]
-        # fmt: on
-        self.ffmpeg_process = subprocess.Popen(cmd)
+        if self._stream_thread:
+            self._stream_thread.join()
+            self._stream_thread = None
+        if self._frame_buffer:
+            self._frame_buffer._mmap.close()
+            self._frame_buffer = None
 
 
 def _allow_udp_on_port(port: int):
@@ -110,21 +107,6 @@ def _allow_udp_on_port(port: int):
         )
     except Exception as e:
         print(f"Failed to set up firewall: {e}")
-
-
-def _get_screen_resolution():
-    """Get the current screen resolution using xrandr"""
-    try:
-        output = subprocess.check_output(["xrandr"]).decode("utf-8")
-        # Find the current resolution from the output
-        for line in output.split("\n"):
-            if "*" in line:  # Current resolution has an asterisk
-                resolution = line.split()[0]
-                width, height = map(int, resolution.split("x"))
-                return (width, height)
-    except:
-        # Fallback to default if detection fails
-        return (1920, 1080)
 
 
 def _get_button_from_str(button_str):
