@@ -85,6 +85,10 @@ class HostService:
 
     # -------------- Controller Functions --------------
 
+    # NOTE: feels like there's a lot of room for imagination here.
+    #       an AI don't have to restrict its interaction w computer to those of a human.
+    #       some immediate ones i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
+
     def read_frame(self) -> np.ndarray:
         # TODO: read frame.dat from shared folder with guest
         pass
