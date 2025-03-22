@@ -44,9 +44,9 @@ class GuestService:
         frame = np.array(frame)
         self._frame_buffer[:] = frame[:]
         self._frame_buffer.flush()
-        self._listen_for_control()
+        return self._listen_for_control()
 
-    def _listen_for_control(self):
+    def _listen_for_control(self) -> bool:
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
         print(f"Received message from {addr}: {message}")
@@ -72,8 +72,12 @@ class GuestService:
         elif message["type"] == "key_up":
             key_str = self._get_key_from_str(message["data"]["key"])
             self.keyboard_controller.release(key_str)
+        elif message["type"] == "stop":
+            self.terminate()
+            return False
         else:
             print(f"[{addr}]: {message['data']}")
+        return True
 
     def terminate(self):
         if self._frame_buffer:
@@ -101,8 +105,9 @@ if __name__ == "__main__":
     with mss() as sct:
         service = GuestService(sct)
         try:
-            while True:
-                service.update()
+            running = True
+            while running:
+                running = service.update()
         except KeyboardInterrupt:
             service.terminate()
             print("GuestService stopped")
