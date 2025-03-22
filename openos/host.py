@@ -1,9 +1,9 @@
-import time
 import json
+import socket
 import subprocess
 import numpy as np
 from pathlib import Path
-import os
+import shutil
 
 # from openos.utils import USER, PASSWORD
 
@@ -30,8 +30,6 @@ class HostService:
             self._shared_folder_path.mkdir(parents=True, exist_ok=True)
             empty_frame_buffer = np.zeros((720, 1280, 4), dtype=np.uint8)
             empty_frame_buffer.tofile(self._shared_folder_path / "frame_buffer.dat")
-            with open(self._shared_folder_path / "control_buffer.json", "w") as f:
-                json.dump([{"role": "host", "type": "init", "data": {}}], f)
 
         self._frame_buffer = np.memmap(
             filename=f"{self._shared_folder_path}/frame_buffer.dat",
@@ -39,13 +37,10 @@ class HostService:
             mode="r",
             shape=(720, 1280, 4),  # TODO: get from guest
         )
-        self._control_buffer = [{"role": "host", "type": "init", "data": {}}]
-        self._control_buffer_path = f"{self._shared_folder_path}/control_buffer.json"
 
-        # Ensure control buffer file exists
-        if not os.path.exists(self._control_buffer_path):
-            with open(self._control_buffer_path, "w") as f:
-                json.dump(self._control_buffer, f)
+        # Control socket for sending commands to guest
+        self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._control_port = 8765 # TODO: should we not hardcode this?
 
     # -------------- VM Life Cycle Functions --------------
 
@@ -53,7 +48,8 @@ class HostService:
         # fmt: off
         print(f"Starting VM at {self._vm_path}")
         subprocess.run(["vmrun", "start", self._vm_path])
-        self._wait_for_vm_ready()
+        print("Waiting for VM to be ready...")
+        self._guest_ip = self._get_vm_ip() # wait for vm ready
         print(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
         print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
@@ -65,6 +61,10 @@ class HostService:
         # fmt: on
 
     def stop(self):
+        print(f"Removing shared folder {self._shared_folder_path} from {self._vm_path}")
+        subprocess.run(["vmrun", "removeSharedFolder", self._vm_path, "temp"])
+        shutil.rmtree(self._shared_folder_path)
+        print(f"Stopping VM at {self._vm_path}")
         subprocess.run(["vmrun", "stop", self._vm_path])
 
     def reset(self):
@@ -82,24 +82,16 @@ class HostService:
         cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self._vm_path}" /bin/bash -c "{combined}"'
         subprocess.run(cmd, shell=True)
 
-    def _wait_for_vm_ready(self):
-        vm_ready = False
-        while not vm_ready:
-            try:
-                result = subprocess.run(
-                    ["vmrun", "checkToolsState", self._vm_path],
-                    capture_output=True,
-                    text=True,
-                )
-                if "running" in result.stdout.lower():
-                    vm_ready = True
-                    print("VM is ready!")
-                else:
-                    print("VM still starting, waiting...")
-                    time.sleep(5)
-            except Exception as e:
-                print(f"Error checking VM state: {e}")
-                time.sleep(5)
+    def _get_vm_ip(self):
+        command = f'vmrun getGuestIPAddress "{self._vm_path}" -wait'
+        result = subprocess.run(
+            command, shell=True, text=True, capture_output=True, encoding="utf-8"
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        else:
+            print(f"Failed to get the IP of virtual machine: {result.stderr}")
+            return None
 
     # -------------- Controller Functions --------------
 
@@ -112,37 +104,28 @@ class HostService:
         pass
 
     def position_mouse(self, x, y):
-        self._write_to_buffer({"type": "position_mouse", "data": {"x": x, "y": y}})
+        self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})
 
     def move_mouse(self, dx, dy):
-        self._write_to_buffer({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
+        self._send_data({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
 
     def button_down(self, button):
-        self._write_to_buffer({"type": "button_down", "data": {"button": button}})
+        self._send_data({"type": "button_down", "data": {"button": button}})
 
     def button_up(self, button):
-        self._write_to_buffer({"type": "button_up", "data": {"button": button}})
+        self._send_data({"type": "button_up", "data": {"button": button}})
 
     def scroll(self, dx, dy):
-        self._write_to_buffer({"type": "scroll", "data": {"dx": dx, "dy": dy}})
+        self._send_data({"type": "scroll", "data": {"dx": dx, "dy": dy}})
 
     def key_down(self, key):
-        self._write_to_buffer({"type": "key_down", "data": {"key": key}})
+        self._send_data({"type": "key_down", "data": {"key": key}})
 
     def key_up(self, key):
-        self._write_to_buffer({"type": "key_up", "data": {"key": key}})
+        self._send_data({"type": "key_up", "data": {"key": key}})
 
-    def _write_to_buffer(self, data: dict):
-        data["role"] = "host"
-        self._control_buffer.append(data)
-        if len(self._control_buffer) > 100:
-            self._control_buffer = self._control_buffer[-100:]
-
-        with open(self._control_buffer_path, "w") as f:
-            json.dump(self._control_buffer, f)
-
-    def _read_from_buffer(self):
-        with open(self._control_buffer_path, "r") as f:
-            self._control_buffer = json.load(f)
-        message = self._control_buffer[-1]
-        # TODO: get status including resolution, etc.
+    def _send_data(self, data: dict):
+        if not self._guest_ip:
+            raise ValueError("VM not started or IP address not available")
+        data = json.dumps(data)
+        self._control_socket.sendto(data.encode(), (self._guest_ip, self._control_port))
