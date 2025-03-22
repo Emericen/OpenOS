@@ -27,7 +27,7 @@ class GuestService:
             filename=f"{self._shared_folder_path}/frame.dat",
             dtype=np.uint8,
             mode="w+",
-            shape=(1280, 720, 4),  # TODO: get with xrandr
+            shape=(720, 1280, 4),  # TODO: get with xrandr
         )
 
         # Control buffer

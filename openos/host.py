@@ -27,7 +27,7 @@ class HostService:
 
         if not self._shared_folder_path.exists():
             self._shared_folder_path.mkdir(parents=True, exist_ok=True)
-            empty_frame_buffer = np.zeros((1280, 720, 4), dtype=np.uint8)
+            empty_frame_buffer = np.zeros((720, 1280, 4), dtype=np.uint8)
             empty_frame_buffer.tofile(self._shared_folder_path / "frame_buffer.dat")
             empty_control_buffer = []
             with open(self._shared_folder_path / "control_buffer.json", "w") as f:
@@ -37,7 +37,7 @@ class HostService:
             filename=f"{self._shared_folder_path}/frame_buffer.dat",
             dtype=np.uint8,
             mode="r",
-            shape=(1280, 720, 4),  # TODO: get from guest
+            shape=(720, 1280, 4),  # TODO: get from guest
         )
         self._control_buffer = []
         self._control_buffer_path = f"{self._shared_folder_path}/control_buffer.json"
