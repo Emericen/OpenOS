@@ -1,9 +1,8 @@
 import time
 import json
-import socket
 import subprocess
 import numpy as np
-
+from pathlib import Path
 from openos.utils import USER, PASSWORD
 
 
@@ -17,40 +16,33 @@ class HostService:
         3. Receiving video stream from the VM.
     """
 
-    def __init__(self, vm_path: str, control_port: int = 8765):
+    def __init__(self, cache_dir: Path, vm_path: str):
         self._vm_path = vm_path
-        self._guest_ip = None
-        self._control_port = control_port
-        self._control_socket = None
+        self._cache_dir = cache_dir
+        self._shared_folder_path = f"{self._cache_dir}/temp"
         self._frame_buffer = np.memmap(
-            filename="/path/to/host/temp/frame.dat",
-            # NOTE: ^ this is host's shared folder with guest
+            filename=f"{self._shared_folder_path}/frame_buffer.dat",
             dtype=np.uint8,
             mode="r",
-            shape=(1280, 720, 4),
-            # NOTE: ^ resolution hardcoded for now. need to send from guest to host (?)
+            shape=(1280, 720, 4),  # TODO: get from guest
         )
+        self._control_buffer = []
+        self._control_buffer_path = f"{self._shared_folder_path}/control_buffer.json"
 
     # -------------- VM Life Cycle Functions --------------
 
     def start(self):
+        # fmt: off
         subprocess.run(["vmrun", "start", self._vm_path])
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
         subprocess.run(
-            ["vmrun", "enableSharedFolder", self._vm_path, "temp", "/path/to/host/temp"]
+            ["vmrun", "enableSharedFolder", self._vm_path, "temp", self._shared_folder_path]
         )
-
-        self._guest_ip = self._get_vm_ip(self._vm_path)
-        self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        print(f"VM started. IP address: {self._guest_ip}")
-
-        self._start_guest_service()
-        self._send_data({"type": "start_stream", "data": {}})
+        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &"]
+        self._execute_commands_in_guest(cmd)
+        # fmt: on
 
     def stop(self):
-        if self._control_socket:
-            self._control_socket.close()
-            self._control_socket = None
         subprocess.run(["vmrun", "stop", self._vm_path])
 
     def reset(self):
@@ -61,21 +53,6 @@ class HostService:
 
     def load(self, snapshot_name="snapshot"):
         subprocess.run(["vmrun", "loadSnapshot", self._vm_path, snapshot_name])
-
-    def _get_vm_ip(self, vm_path: str):
-        command = f'vmrun getGuestIPAddress "{vm_path}" -wait'
-        result = subprocess.run(
-            command, shell=True, text=True, capture_output=True, encoding="utf-8"
-        )
-        if result.returncode == 0:
-            return result.stdout.strip()
-        else:
-            print(f"Failed to get the IP of virtual machine: {result.stderr}")
-            return None
-
-    def _start_guest_service(self):
-        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &"]
-        self._execute_commands_in_guest(cmd)
 
     def _execute_commands_in_guest(self, commands: list[str]):
         # NOTE: cmd output can NOT be seen on host
@@ -94,28 +71,37 @@ class HostService:
         pass
 
     def position_mouse(self, x, y):
-        self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})
+        self._write_to_buffer({"type": "position_mouse", "data": {"x": x, "y": y}})
 
     def move_mouse(self, dx, dy):
-        self._send_data({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
+        self._write_to_buffer({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
 
     def button_down(self, button):
-        self._send_data({"type": "button_down", "data": {"button": button}})
+        self._write_to_buffer({"type": "button_down", "data": {"button": button}})
 
     def button_up(self, button):
-        self._send_data({"type": "button_up", "data": {"button": button}})
+        self._write_to_buffer({"type": "button_up", "data": {"button": button}})
 
     def scroll(self, dx, dy):
-        self._send_data({"type": "scroll", "data": {"dx": dx, "dy": dy}})
+        self._write_to_buffer({"type": "scroll", "data": {"dx": dx, "dy": dy}})
 
     def key_down(self, key):
-        self._send_data({"type": "key_down", "data": {"key": key}})
+        self._write_to_buffer({"type": "key_down", "data": {"key": key}})
 
     def key_up(self, key):
-        self._send_data({"type": "key_up", "data": {"key": key}})
+        self._write_to_buffer({"type": "key_up", "data": {"key": key}})
 
-    def _send_data(self, data: dict):
-        if not self._guest_ip:
-            raise ValueError("VM not started or IP address not available")
-        data = json.dumps(data)
-        self._control_socket.sendto(data.encode(), (self._guest_ip, self._control_port))
+    def _write_to_buffer(self, data: dict):
+        data["role"] = "host"
+        self._control_buffer.append(data)
+        if len(self._control_buffer) > 100:
+            self._control_buffer = self._control_buffer[-100:]
+
+        with open(self._control_buffer_path, "w") as f:
+            json.dump(self._control_buffer, f)
+
+    def _read_from_buffer(self):
+        with open(self._control_buffer_path, "r") as f:
+            self._control_buffer = json.load(f)
+        message = self._control_buffer[-1]
+        # TODO: get status including resolution, etc.
