@@ -1,7 +1,7 @@
 import json
 import time
 import threading
-import mss
+from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
 

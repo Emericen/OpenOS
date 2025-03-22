@@ -55,7 +55,7 @@ class HostService:
         subprocess.run(["vmrun", "addSharedFolder", self._vm_path, "temp", self._shared_folder_path])
         print(f"Starting guest service at {self._shared_folder_path}")
         # "DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &",
-        cmd = ["cd /home/user/openos", "source venv/bin/activate", "python openos/guest.py &"]
+        cmd = ["cd /home/user/openos", "python openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
         # fmt: on
 

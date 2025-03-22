@@ -31,11 +31,12 @@ git clone https://github.com/Emericen/openos.git
 echo "📂 Installing openos package..."
 cd /home/user/openos
 # Use python3.10 -m pip to ensure the correct pip is used
-python3.10 -m venv venv
 source venv/bin/activate
 sudo apt-get install -y linux-libc-dev libevdev-dev
 sudo apt install -y build-essential python3.10-dev
-python3.10 -m pip install .
+python3.10 -m pip install mss==10.0.0
+python3.10 -m pip install pynput==1.7.8
+python3.10 -m pip install numpy==2.2.3
 deactivate
 
 echo "🎉 Setup complete! You can now run OpenOS."
