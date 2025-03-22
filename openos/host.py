@@ -3,6 +3,7 @@ import json
 import subprocess
 import numpy as np
 from pathlib import Path
+import os
 
 # from openos.utils import USER, PASSWORD
 
@@ -29,9 +30,8 @@ class HostService:
             self._shared_folder_path.mkdir(parents=True, exist_ok=True)
             empty_frame_buffer = np.zeros((720, 1280, 4), dtype=np.uint8)
             empty_frame_buffer.tofile(self._shared_folder_path / "frame_buffer.dat")
-            empty_control_buffer = []
             with open(self._shared_folder_path / "control_buffer.json", "w") as f:
-                json.dump(empty_control_buffer, f)
+                json.dump([{"role": "host", "type": "init", "data": {}}], f)
 
         self._frame_buffer = np.memmap(
             filename=f"{self._shared_folder_path}/frame_buffer.dat",
@@ -39,8 +39,13 @@ class HostService:
             mode="r",
             shape=(720, 1280, 4),  # TODO: get from guest
         )
-        self._control_buffer = []
+        self._control_buffer = [{"role": "host", "type": "init", "data": {}}]
         self._control_buffer_path = f"{self._shared_folder_path}/control_buffer.json"
+
+        # Ensure control buffer file exists
+        if not os.path.exists(self._control_buffer_path):
+            with open(self._control_buffer_path, "w") as f:
+                json.dump(self._control_buffer, f)
 
     # -------------- VM Life Cycle Functions --------------
 
@@ -103,7 +108,7 @@ class HostService:
     #       some immediate ones i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
 
     def read_frame(self) -> np.ndarray:
-        # TODO: read frame.dat from shared folder with guest
+        # TODO: read frame_buffer.dat and return numpy array for Agent
         pass
 
     def position_mouse(self, x, y):

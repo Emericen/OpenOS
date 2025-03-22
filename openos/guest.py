@@ -4,6 +4,7 @@ import threading
 from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
+import os
 
 
 class GuestService:
@@ -22,12 +23,20 @@ class GuestService:
 
         self._shared_folder_path = "/mnt/hgfs/temp"
 
+        # Make sure file names match what the host is using
+        frame_buffer_path = f"{self._shared_folder_path}/frame_buffer.dat"
+
+        # Create the file if it doesn't exist
+        if not os.path.exists(frame_buffer_path):
+            empty_buffer = np.zeros((720, 1280, 4), dtype=np.uint8)
+            empty_buffer.tofile(frame_buffer_path)
+
         # Video "streaming"
         self._frame_buffer = np.memmap(
-            filename=f"{self._shared_folder_path}/frame.dat",
+            filename=frame_buffer_path,
             dtype=np.uint8,
-            mode="w+",
-            shape=(720, 1280, 4),  # TODO: get with xrandr
+            mode="r+",
+            shape=(720, 1280, 4),  # TODO: get using xrandr
         )
 
         # Control buffer
@@ -58,35 +67,34 @@ class GuestService:
             self._frame_buffer = None
 
     def _read_from_buffer(self):
-        with open(self._control_buffer_path, "r") as f:
-            self._control_buffer = json.load(f)
+        # Only process if there are messages
+        if self._control_buffer and len(self._control_buffer) > 0:
+            message = self._control_buffer[-1]
 
-        message = self._control_buffer[-1]
-
-        if message["role"] == "host":
-            if message["type"] == "move_mouse":
-                dx, dy = message["data"]["dx"], message["data"]["dy"]
-                self.mouse_controller.move(dx, dy)
-            elif message["type"] == "position_mouse":
-                x, y = message["data"]["x"], message["data"]["y"]
-                self.mouse_controller.position = (x, y)
-            elif message["type"] == "button_down":
-                button_str = self._get_button_from_str(message["data"]["button"])
-                self.mouse_controller.press(button_str)
-            elif message["type"] == "button_up":
-                button_str = self._get_button_from_str(message["data"]["button"])
-                self.mouse_controller.release(button_str)
-            elif message["type"] == "scroll":
-                dx, dy = message["data"]["dx"], message["data"]["dy"]
-                self.mouse_controller.scroll(dx, dy)
-            elif message["type"] == "key_down":
-                key_str = self._get_key_from_str(message["data"]["key"])
-                self.keyboard_controller.press(key_str)
-            elif message["type"] == "key_up":
-                key_str = self._get_key_from_str(message["data"]["key"])
-                self.keyboard_controller.release(key_str)
-            else:
-                print(f"Unknown message: {message}")
+            if message["role"] == "host":
+                if message["type"] == "move_mouse":
+                    dx, dy = message["data"]["dx"], message["data"]["dy"]
+                    self.mouse_controller.move(dx, dy)
+                elif message["type"] == "position_mouse":
+                    x, y = message["data"]["x"], message["data"]["y"]
+                    self.mouse_controller.position = (x, y)
+                elif message["type"] == "button_down":
+                    button_str = self._get_button_from_str(message["data"]["button"])
+                    self.mouse_controller.press(button_str)
+                elif message["type"] == "button_up":
+                    button_str = self._get_button_from_str(message["data"]["button"])
+                    self.mouse_controller.release(button_str)
+                elif message["type"] == "scroll":
+                    dx, dy = message["data"]["dx"], message["data"]["dy"]
+                    self.mouse_controller.scroll(dx, dy)
+                elif message["type"] == "key_down":
+                    key_str = self._get_key_from_str(message["data"]["key"])
+                    self.keyboard_controller.press(key_str)
+                elif message["type"] == "key_up":
+                    key_str = self._get_key_from_str(message["data"]["key"])
+                    self.keyboard_controller.release(key_str)
+                else:
+                    print(f"Unknown message type: {message['type']}")
 
     def _get_button_from_str(self, button_str):
         """Get the button from the string"""
