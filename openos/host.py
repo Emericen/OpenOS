@@ -3,9 +3,6 @@ import socket
 import subprocess
 import numpy as np
 from pathlib import Path
-import shutil
-
-# from openos.utils import USER, PASSWORD
 
 USER = "user"
 PASSWORD = "password"
@@ -40,7 +37,7 @@ class HostService:
 
         # Control socket for sending commands to guest
         self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._control_port = 8765 # TODO: should we not hardcode this?
+        self._control_port = 8765  # TODO: should we not hardcode this?
 
     # -------------- VM Life Cycle Functions --------------
 
@@ -55,8 +52,6 @@ class HostService:
         print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
         subprocess.run(["vmrun", "addSharedFolder", self._vm_path, "temp", self._shared_folder_path])
         print(f"Starting guest service at {self._shared_folder_path}")
-        # "DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &",
-        # cmd = ["cd /home/user/openos", "python openos/guest.py &"]
         cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
         # fmt: on
@@ -64,7 +59,6 @@ class HostService:
     def stop(self):
         print(f"Removing shared folder {self._shared_folder_path} from {self._vm_path}")
         subprocess.run(["vmrun", "removeSharedFolder", self._vm_path, "temp"])
-        shutil.rmtree(self._shared_folder_path)
         print(f"Stopping VM at {self._vm_path}")
         subprocess.run(["vmrun", "stop", self._vm_path])
 

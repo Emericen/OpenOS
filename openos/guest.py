@@ -1,5 +1,6 @@
 import json
 import socket
+import subprocess
 from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
@@ -34,6 +35,7 @@ class GuestService:
         # Control socket
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind(("0.0.0.0", control_port))
+        self._allow_udp_on_port(control_port)
 
         # Input controllers
         self.keyboard_controller = keyboard.Controller()
@@ -99,6 +101,18 @@ class GuestService:
             key_name = key_str.split(".")[1]
             return getattr(keyboard.Key, key_name)
         return key_str
+
+    def _allow_udp_on_port(port: int):
+        # Set up firewall rules
+        try:
+            print("Setting up firewall rules...")
+            subprocess.run(
+                ["sudo", "-S", "ufw", "allow", f"{port}/udp"],
+                input=PASSWORD.encode(),
+                check=True,
+            )
+        except Exception as e:
+            print(f"Failed to set up firewall: {e}")
 
 
 if __name__ == "__main__":
