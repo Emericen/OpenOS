@@ -12,8 +12,8 @@ UBUNTU_ARM_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-arm.zip"
 )
 
-USER = "agent"
-PASSWORD = "visible-internal-testbed"
+USER = "user"
+PASSWORD = "password"
 
 
 def get_ubuntu_vm_path(cache_dir: Path) -> str:
