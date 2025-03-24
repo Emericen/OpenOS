@@ -10,12 +10,12 @@ PASSWORD = "password"
 
 class HostService:
     """
-    This module runs ON the host machine.
+    This module runs on the host machine.
 
     It handles 3 main functions:
-        1. Starting, stopping, resetting, saving, loading the VM.
+        1. Managing the VM's life cycle.
         2. Sending input commands to the VM (keyboard, mouse, etc.)
-        3. Receiving video stream from the VM.
+        3. Reading the VM's frame buffer.
     """
 
     def __init__(self, cache_dir: Path, vm_path: str):
@@ -91,12 +91,11 @@ class HostService:
     # -------------- Controller Functions --------------
 
     # NOTE: feels like there's a lot of room for imagination here.
-    #       an AI don't have to restrict its interaction w computer to those of a human.
-    #       some immediate ones i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
+    #       an AI doesn't have to restrict to ways a human interacts with computer.
+    #       some other cmds i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
 
     def read_frame(self) -> np.ndarray:
-        # TODO: read frame_buffer.dat and return numpy array for Agent
-        pass
+        return np.copy(self._frame_buffer)
 
     def position_mouse(self, x, y):
         self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})

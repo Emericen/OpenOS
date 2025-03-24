@@ -13,12 +13,12 @@ class GuestService:
     This module runs INSIDE the virtual machine.
 
     It handles two main functions:
-        1. Streaming the VM's screen to the host machine.
+        1. Updating the frame buffer with the VM's screen.
         2. Receiving and executing input commands (keyboard & mouse etc.) from the host
     """
 
     def __init__(self, sct: mss, control_port: int = 8765):
-        # Input controllers
+        # Screen capture tool (mss instance) for grabbing VM's display
         self.sct = sct
 
         # Shared frame buffer

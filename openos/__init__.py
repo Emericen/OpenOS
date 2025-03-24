@@ -12,13 +12,10 @@ class OpenOS:
             cache_dir = DEFAULT_CACHE_DIR
         else:
             cache_dir = Path(cache_dir)
+
         cache_dir.mkdir(parents=True, exist_ok=True)
         vm_path = get_ubuntu_vm_path(cache_dir=cache_dir)
-
-        # cache_dir = Path.home() / ".cache" / "openos"
-        # vm_path = cache_dir / "ubuntu-x86" / "ubuntu-x86.vmx"
-        host = HostService(cache_dir=cache_dir, vm_path=vm_path)
-        return host
+        return HostService(cache_dir=cache_dir, vm_path=vm_path)
 
 
 __all__ = ["OpenOS"]
