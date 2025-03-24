@@ -12,8 +12,8 @@ UBUNTU_ARM_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-arm.zip"
 )
 
-USER = "agent"
-PASSWORD = "visible-internal-testbed"
+USER = "user"
+PASSWORD = "password"
 
 
 def get_ubuntu_vm_path(cache_dir: Path) -> str:
@@ -59,7 +59,7 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
     vmx_files = list(cache_dir.glob("**/*.vmx"))
     vm_path = str(vmx_files[0])
     print(f"VM image installed at {vm_path}")
-    return cache_dir, vm_path
+    return vm_path
 
 
 if __name__ == "__main__":

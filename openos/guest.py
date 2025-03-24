@@ -5,8 +5,8 @@ from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
 import os
+from openos.utils import PASSWORD
 
-PASSWORD = "password"
 
 class GuestService:
     """

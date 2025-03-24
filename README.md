@@ -33,9 +33,7 @@ ubuntu.stop()
 ## To setup New Ubuntu VM
 
 1. Install iso from [official site](https://releases.ubuntu.com/jammy/). on windows, select [ubuntu-22.04.5-desktop-amd64.iso](https://releases.ubuntu.com/jammy/ubuntu-22.04.5-desktop-amd64.iso).
-
-2. Open VMWare and create new VM with the ISO.
-
+2. Open VMWare and create new VM with the ISO. Select automatic login without password.
 3. After OS is ready, copy and paste code in `openos\scripts\ubuntu-setup.sh` and run it. Here's what I did:
     ```bash
     user@ubuntu:~$ cd Desktop
@@ -45,5 +43,5 @@ ubuntu.stop()
     user@ubuntu:~$ sudo ./setup.sh
     ```
 
-4. Go to power button on top right and logout. When logging back in and entering password, select the gear icon on bottom right and switch to `Ubuntu on Xorg`.
+4. Logout of the OS and log back in. When entering password, select the gear icon on bottom right and switch to `Ubuntu on Xorg`.
 5. Log back in, right click anywhere, and go to `Display Settings`. Change resolution to `1280x720`.
