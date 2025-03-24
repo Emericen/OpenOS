@@ -46,3 +46,6 @@ site/
 test.py
 experiments/
 playground.ipynb
+
+# Shared folders
+temp/

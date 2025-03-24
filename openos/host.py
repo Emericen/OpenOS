@@ -1,63 +1,65 @@
-import time
 import json
 import socket
 import subprocess
 import numpy as np
+from pathlib import Path
 
-from openos.utils import USER, PASSWORD
+USER = "user"
+PASSWORD = "password"
 
 
 class HostService:
-    """Manages the virtual machine and communication with the VM server."""
+    """
+    This module runs ON the host machine.
 
-    def __init__(self, vm_path: str, video_port: int = 8765, control_port: int = 8766):
+    It handles 3 main functions:
+        1. Starting, stopping, resetting, saving, loading the VM.
+        2. Sending input commands to the VM (keyboard, mouse, etc.)
+        3. Receiving video stream from the VM.
+    """
+
+    def __init__(self, cache_dir: Path, vm_path: str):
         self._vm_path = vm_path
-        self._guest_ip = None
-        self._video_port = video_port
-        self._control_port = control_port
-        self._resolution = (1280, 720)  # NOTE: hardcoded for now
+        self._cache_dir = cache_dir
+        self._shared_folder_path = cache_dir / "temp"
 
-        self._ffmpeg_process = None
-        self._control_socket = None
+        if not self._shared_folder_path.exists():
+            self._shared_folder_path.mkdir(parents=True, exist_ok=True)
+            empty_frame_buffer = np.zeros((720, 1280, 4), dtype=np.uint8)
+            empty_frame_buffer.tofile(self._shared_folder_path / "frame_buffer.dat")
+
+        self._frame_buffer = np.memmap(
+            filename=f"{self._shared_folder_path}/frame_buffer.dat",
+            dtype=np.uint8,
+            mode="r",
+            shape=(720, 1280, 4),  # TODO: get from guest
+        )
+
+        # Control socket for sending commands to guest
+        self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._control_port = 8765  # TODO: should we not hardcode this?
 
     # -------------- VM Life Cycle Functions --------------
 
     def start(self):
-        subprocess.run(["vmrun", "start", self._vm_path])
-        self._guest_ip = self._get_vm_ip(self._vm_path)
-        self._control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        print(f"VM started. IP address: {self._guest_ip}")
-
-        self._start_guest_service()
-        self._send_data({"type": "start_stream", "data": {}})
-
         # fmt: off
-        print("starting ffmpeg...")
-        # cmd = [
-        #     "ffmpeg", "-fflags", "nobuffer", 
-        #     "-f", "mpegts", 
-        #     "-i", f"udp://{self._guest_ip}:{self._video_port}", 
-        #     "-f", "mpegts", 
-        #     "-flags", "low_delay", 
-        #     "-avioflags", "direct", 
-        #     "-pix_fmt", "rgb24", 
-        #     "-vf", "format=rgb24", 
-        #     "pipe:1"
-        # ]
-        cmd = [
-            "ffplay -fflags nobuffer -flags low_delay -i udp://192.168.146.1:8765"
-        ]
+        print(f"Starting VM at {self._vm_path}")
+        subprocess.run(["vmrun", "start", self._vm_path])
+        print("Waiting for VM to be ready...")
+        self._guest_ip = self._get_vm_ip() # wait for vm ready
+        print(f"Enabling shared folders for {self._vm_path}")
+        subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
+        print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
+        subprocess.run(["vmrun", "addSharedFolder", self._vm_path, "temp", self._shared_folder_path])
+        print(f"Starting guest service at {self._shared_folder_path}")
+        cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
+        self._execute_commands_in_guest(cmd)
         # fmt: on
-        self._ffmpeg_process = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
     def stop(self):
-        if self._ffmpeg_process:
-            self._ffmpeg_process.terminate()
-            self._ffmpeg_process.wait()
-            self._ffmpeg_process = None
-        if self._control_socket:
-            self._control_socket.close()
-            self._control_socket = None
+        print(f"Removing shared folder {self._shared_folder_path} from {self._vm_path}")
+        subprocess.run(["vmrun", "removeSharedFolder", self._vm_path, "temp"])
+        print(f"Stopping VM at {self._vm_path}")
         subprocess.run(["vmrun", "stop", self._vm_path])
 
     def reset(self):
@@ -70,17 +72,13 @@ class HostService:
         subprocess.run(["vmrun", "loadSnapshot", self._vm_path, snapshot_name])
 
     def _execute_commands_in_guest(self, commands: list[str]):
-        # NOTE: no output can be seen on host
+        # NOTE: cmd output can NOT be seen on host
         combined = " && ".join(commands)
         cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self._vm_path}" /bin/bash -c "{combined}"'
         subprocess.run(cmd, shell=True)
 
-    def _start_guest_service(self):
-        cmd = ["DISPLAY=:0 /usr/bin/python3 /home/agent/openos/openos/guest.py &"]
-        self._execute_commands_in_guest(cmd)
-
-    def _get_vm_ip(self, vm_path: str):
-        command = f'vmrun getGuestIPAddress "{vm_path}" -wait'
+    def _get_vm_ip(self):
+        command = f'vmrun getGuestIPAddress "{self._vm_path}" -wait'
         result = subprocess.run(
             command, shell=True, text=True, capture_output=True, encoding="utf-8"
         )
@@ -92,18 +90,13 @@ class HostService:
 
     # -------------- Controller Functions --------------
 
-    def read_frame(self):
-        raw_image = self._ffmpeg_process.stdout.read(
-            self._resolution[0] * self._resolution[1] * 3
-        )
-        if len(raw_image) == 0:
-            return None
+    # NOTE: feels like there's a lot of room for imagination here.
+    #       an AI don't have to restrict its interaction w computer to those of a human.
+    #       some immediate ones i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
 
-        # Convert to numpy array
-        frame = np.frombuffer(raw_image, dtype=np.uint8).reshape(
-            (self._resolution[1], self._resolution[0], 3)
-        )
-        return frame
+    def read_frame(self) -> np.ndarray:
+        # TODO: read frame_buffer.dat and return numpy array for Agent
+        pass
 
     def position_mouse(self, x, y):
         self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})

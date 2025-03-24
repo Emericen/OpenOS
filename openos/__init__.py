@@ -7,7 +7,7 @@ DEFAULT_CACHE_DIR = Path.home() / ".cache" / "openos"
 
 class OpenOS:
     @staticmethod
-    def create(video_port=8765, control_port=8766, cache_dir=None):
+    def create(cache_dir=None):
         if not cache_dir:
             cache_dir = DEFAULT_CACHE_DIR
         else:
@@ -15,9 +15,9 @@ class OpenOS:
         cache_dir.mkdir(parents=True, exist_ok=True)
         vm_path = get_ubuntu_vm_path(cache_dir=cache_dir)
 
-        host = HostService(
-            vm_path=vm_path, video_port=video_port, control_port=control_port
-        )
+        # cache_dir = Path.home() / ".cache" / "openos"
+        # vm_path = cache_dir / "ubuntu-x86" / "ubuntu-x86.vmx"
+        host = HostService(cache_dir=cache_dir, vm_path=vm_path)
         return host
 
 
