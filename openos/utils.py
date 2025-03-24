@@ -5,8 +5,8 @@ import zipfile
 from pathlib import Path
 from tqdm import tqdm
 
-UBUNTU_X86_FILE_URL = (
-    "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-x86.zip"
+UBUNTU_AMD64_FILE_URL = (
+    "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-amd64.zip"
 )
 UBUNTU_ARM_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-arm.zip"
@@ -29,7 +29,7 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
     if machine in ["arm64", "aarch64"]:
         file_url = UBUNTU_ARM_FILE_URL
     elif machine in ["amd64", "x86_64"]:
-        file_url = UBUNTU_X86_FILE_URL
+        file_url = UBUNTU_AMD64_FILE_URL
     else:
         raise Exception("Unsupported platform or architecture.")
 
