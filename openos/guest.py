@@ -6,6 +6,7 @@ import numpy as np
 from pynput import keyboard, mouse
 import os
 
+PASSWORD = "password"
 
 class GuestService:
     """
@@ -102,7 +103,7 @@ class GuestService:
             return getattr(keyboard.Key, key_name)
         return key_str
 
-    def _allow_udp_on_port(port: int):
+    def _allow_udp_on_port(self, port: int):
         # Set up firewall rules
         try:
             print("Setting up firewall rules...")
