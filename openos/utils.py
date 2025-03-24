@@ -6,7 +6,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 UBUNTU_AMD64_FILE_URL = (
-    "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-amd64.zip"
+    "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-amd.zip"
 )
 UBUNTU_ARM_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-arm.zip"

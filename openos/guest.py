@@ -117,7 +117,7 @@ class GuestService:
 
 
 if __name__ == "__main__":
-    with mss() as sct:
+    with mss(with_cursor=True) as sct:
         service = GuestService(sct)
         try:
             running = True

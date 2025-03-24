@@ -18,7 +18,8 @@ class HostService:
         3. Reading the VM's frame buffer.
     """
 
-    def __init__(self, cache_dir: Path, vm_path: str):
+    def __init__(self, cache_dir: Path, vm_path: str, headless: bool = False):
+        self._headless = headless
         self._vm_path = vm_path
         self._cache_dir = cache_dir
         self._shared_folder_path = cache_dir / "temp"
@@ -44,7 +45,7 @@ class HostService:
     def start(self):
         # fmt: off
         print(f"Starting VM at {self._vm_path}")
-        subprocess.run(["vmrun", "start", self._vm_path])
+        subprocess.run(["vmrun", "start", self._vm_path, "nogui" if self._headless else ""])
         print("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip() # wait for vm ready
         print(f"Enabling shared folders for {self._vm_path}")
