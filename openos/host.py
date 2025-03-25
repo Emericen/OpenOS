@@ -3,6 +3,7 @@ import socket
 import subprocess
 import numpy as np
 from pathlib import Path
+from openos.utils import KEYBOARD_MAPPING, MOUSE_MAPPING
 
 USER = "user"
 PASSWORD = "password"
@@ -48,6 +49,11 @@ class HostService:
         subprocess.run(["vmrun", "start", self._vm_path, "nogui" if self._headless else ""])
         print("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip() # wait for vm ready
+
+        self._execute_commands_in_guest(["cd /home/user/openos", "git pull"])
+        # ^ maybe remove openos repo from existing OS image and do `git clone && pip install` each time?
+        # that way, only when git, python, or pip version change do we re-upload the whole OS image.
+
         print(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
         print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
@@ -104,19 +110,19 @@ class HostService:
     def move_mouse(self, dx, dy):
         self._send_data({"type": "move_mouse", "data": {"dx": dx, "dy": dy}})
 
-    def button_down(self, button):
+    def mouse_button_down(self, button):
         self._send_data({"type": "button_down", "data": {"button": button}})
 
-    def button_up(self, button):
+    def mouse_button_up(self, button):
         self._send_data({"type": "button_up", "data": {"button": button}})
 
     def scroll(self, dx, dy):
         self._send_data({"type": "scroll", "data": {"dx": dx, "dy": dy}})
 
-    def key_down(self, key):
+    def keyboard_key_down(self, key):
         self._send_data({"type": "key_down", "data": {"key": key}})
 
-    def key_up(self, key):
+    def keyboard_key_up(self, key):
         self._send_data({"type": "key_up", "data": {"key": key}})
 
     def _send_data(self, data: dict):

@@ -5,7 +5,7 @@ from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
 import os
-from openos.utils import PASSWORD
+from openos.utils import PASSWORD, KEYBOARD_MAPPING, MOUSE_MAPPING
 
 
 class GuestService:
@@ -89,18 +89,13 @@ class GuestService:
         self.control_socket.close()
 
     def _get_button_from_str(self, button_str):
-        if button_str == "mouse.Button.left":
-            return mouse.Button.left
-        elif button_str == "mouse.Button.right":
-            return mouse.Button.right
-        elif button_str == "mouse.Button.middle":
-            return mouse.Button.middle
+        if button_str in MOUSE_MAPPING:
+            return MOUSE_MAPPING[button_str]
         return button_str
 
     def _get_key_from_str(self, key_str):
-        if key_str.startswith("Key."):
-            key_name = key_str.split(".")[1]
-            return getattr(keyboard.Key, key_name)
+        if key_str in KEYBOARD_MAPPING:
+            return KEYBOARD_MAPPING[key_str]
         return key_str
 
     def _allow_udp_on_port(self, port: int):

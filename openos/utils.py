@@ -4,6 +4,8 @@ import requests
 import zipfile
 from pathlib import Path
 from tqdm import tqdm
+from pynput.keyboard import Key
+from pynput.mouse import Button
 
 UBUNTU_AMD64_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-amd.zip"
@@ -14,6 +16,47 @@ UBUNTU_ARM_FILE_URL = (
 
 USER = "user"
 PASSWORD = "password"
+
+
+KEYBOARD_MAPPING = {
+    "shift": Key.shift,
+    "ctrl": Key.ctrl,
+    "alt": Key.alt,
+    "space": Key.space,
+    "backspace": Key.backspace,
+    "enter": Key.enter,
+    "tab": Key.tab,
+    "esc": Key.esc,
+    "up": Key.up,
+    "down": Key.down,
+    "left": Key.left,
+    "right": Key.right,
+    "home": Key.home,
+    "end": Key.end,
+    "page_up": Key.page_up,
+    "page_down": Key.page_down,
+    "delete": Key.delete,
+    "caps_lock": Key.caps_lock,
+    "f1": Key.f1,
+    "f2": Key.f2,
+    "f3": Key.f3,
+    "f4": Key.f4,
+    "f5": Key.f5,
+    "f6": Key.f6,
+    "f7": Key.f7,
+    "f8": Key.f8,
+    "f9": Key.f9,
+    "f10": Key.f10,
+    "f11": Key.f11,
+    "f12": Key.f12,
+}
+
+
+MOUSE_MAPPING = {
+    "left": Button.left,
+    "right": Button.right,
+    "middle": Button.middle,
+}
 
 
 def get_ubuntu_vm_path(cache_dir: Path) -> str:
@@ -60,8 +103,3 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
     vm_path = str(vmx_files[0])
     print(f"VM image installed at {vm_path}")
     return vm_path
-
-
-if __name__ == "__main__":
-    path = get_ubuntu_vm_path()
-    print(path)

@@ -54,14 +54,18 @@ ubuntu.stop()
 5. Log back in, right click anywhere, and go to `Display Settings`. Change resolution to `1280x720`.
 
 ## Future Work
+Ranked by priority
 
-- Switch from VMWare to Qemu / KVM
+- Make button & key names more intuitive.
+- Support headless mode and interact through pygame window.
+- Test snapshot saving & loading.
+- Switch from VMWare to Qemu / KVM.
   - Open source and faster and native to linux.
   - Has GPU pass-through.
   - Allows for more control to add more docker-like features s.a. building, hot reloading, and logging.
   - See [1](https://www.youtube.com/watch?v=Kq849CpGd88) and [2](https://www.youtube.com/watch?v=BgZHbCDFODk)
 - Add Windows as selectable OS.
+- Add more types of controls (?)
+  - See comments in [host.py](openos/host.py)
 - Add Audio support (?)
   - Consider using `pyaudio` or `ffmpeg`
-- Add more types of controls (?) 
-  - See comments in [host.py](openos/host.py)
