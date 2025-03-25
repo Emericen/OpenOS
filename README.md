@@ -10,10 +10,10 @@ Make sure you have VMware installed. Test by running
 vmrun list
 ```
 
-You should see a list of VMs. Now you're ready to install OpenOS, simply run
+You should see a list of VMs. Now you're ready to install OpenOS, clone this project and run
 
 ```bash
-pip install openos
+pip install .
 ```
 
 Use OpenOS like this:
@@ -26,8 +26,8 @@ ubuntu.start()
 
 # Interact with the OS
 ubuntu.move_mouse(100, 120)
-ubuntu.button_down("mouse.Button.left")
-ubuntu.button_up("mouse.Button.left")
+ubuntu.button_down("right")
+ubuntu.button_up("right")
 
 # Capture and display the current screen as an BGRA array of size (720, 1280, 4)
 # NOTE: While read can be called anytime, frame data itself updates at ~30 FPS.
@@ -36,6 +36,8 @@ frame = ubuntu.read_frame()
 # Shuts down the VM
 ubuntu.stop()
 ```
+
+See [host.py](openos/host.py) for all APIs
 
 ## To Setup New Ubuntu VM
 
@@ -53,11 +55,10 @@ ubuntu.stop()
 4. Logout of the OS and log back in. When entering password, select the gear icon on bottom right and switch to `Ubuntu on Xorg`.
 5. Log back in, right click anywhere, and go to `Display Settings`. Change resolution to `1280x720`.
 
-## Future Work
+## Work In Progress
 Ranked by priority
 
-- Make button & key names more intuitive.
-- Support headless mode and interact through pygame window.
+- Strengthen pygame window in [gui.py](gui.py).
 - Test snapshot saving & loading.
 - Switch from VMWare to Qemu / KVM.
   - Open source and faster and native to linux.
