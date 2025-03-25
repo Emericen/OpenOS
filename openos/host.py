@@ -47,17 +47,19 @@ class HostService:
         # fmt: off
         print(f"Starting VM at {self._vm_path}")
         subprocess.run(["vmrun", "start", self._vm_path, "nogui" if self._headless else ""])
+        
         print("Waiting for VM to be ready...")
-        self._guest_ip = self._get_vm_ip() # wait for vm ready
+        self._guest_ip = self._get_vm_ip()
 
-        self._execute_commands_in_guest(["cd /home/user/openos", "git pull"])
-        # ^ maybe remove openos repo from existing OS image and do `git clone && pip install` each time?
-        # that way, only when git, python, or pip version change do we re-upload the whole OS image.
+        print("Updating guest side OpenOS...")
+        self._execute_commands_in_guest(["cd /home/user/openos", "git pull", "pip uninstall openos -y", "pip install ."])
 
         print(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
+
         print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
         subprocess.run(["vmrun", "addSharedFolder", self._vm_path, "temp", self._shared_folder_path])
+
         print(f"Starting guest service at {self._shared_folder_path}")
         cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
