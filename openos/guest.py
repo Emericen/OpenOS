@@ -1,11 +1,12 @@
+import os
 import json
 import socket
 import subprocess
 from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
-import os
-from openos.utils import PASSWORD, KEYBOARD_MAPPING, MOUSE_MAPPING
+from openos.input_mappings import find_key, find_button
+from openos.utils import PASSWORD
 
 
 class GuestService:
@@ -52,7 +53,7 @@ class GuestService:
     def _listen_for_control(self) -> bool:
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
-        print(f"Received message from {addr}: {message}")
+        print(f"[{addr}]: {message['data']}")
 
         if message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
@@ -61,25 +62,32 @@ class GuestService:
             x, y = message["data"]["x"], message["data"]["y"]
             self.mouse_controller.position = (x, y)
         elif message["type"] == "button_down":
-            button_str = self._get_button_from_str(message["data"]["button"])
-            self.mouse_controller.press(button_str)
+            button_str = message["data"]["button"]
+            button = find_button(name=button_str)
+            if button:
+                self.mouse_controller.press(button.pynput_button)
         elif message["type"] == "button_up":
-            button_str = self._get_button_from_str(message["data"]["button"])
-            self.mouse_controller.release(button_str)
+            button_str = message["data"]["button"]
+            button = find_button(name=button_str)
+            if button:
+                self.mouse_controller.release(button.pynput_button)
         elif message["type"] == "scroll":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.scroll(dx, dy)
         elif message["type"] == "key_down":
-            key_str = self._get_key_from_str(message["data"]["key"])
-            self.keyboard_controller.press(key_str)
+            key_str = message["data"]["key"]
+            key = find_key(name=key_str)
+            if key:
+                self.keyboard_controller.press(key.pynput_key)
         elif message["type"] == "key_up":
-            key_str = self._get_key_from_str(message["data"]["key"])
-            self.keyboard_controller.release(key_str)
+            key_str = message["data"]["key"]
+            key = find_key(name=key_str)
+            if key:
+                self.keyboard_controller.release(key.pynput_key)
         elif message["type"] == "stop":
             self.terminate()
             return False
-        else:
-            print(f"[{addr}]: {message['data']}")
+
         return True
 
     def terminate(self):
@@ -88,18 +96,7 @@ class GuestService:
             self._frame_buffer = None
         self.control_socket.close()
 
-    def _get_button_from_str(self, button_str):
-        if button_str in MOUSE_MAPPING:
-            return MOUSE_MAPPING[button_str]
-        return button_str
-
-    def _get_key_from_str(self, key_str):
-        if key_str in KEYBOARD_MAPPING:
-            return KEYBOARD_MAPPING[key_str]
-        return key_str
-
     def _allow_udp_on_port(self, port: int):
-        # Set up firewall rules
         try:
             print("Setting up firewall rules...")
             subprocess.run(

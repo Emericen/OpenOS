@@ -3,10 +3,7 @@ import socket
 import subprocess
 import numpy as np
 from pathlib import Path
-from openos.utils import KEYBOARD_MAPPING, MOUSE_MAPPING
-
-USER = "user"
-PASSWORD = "password"
+from openos.utils import USER, PASSWORD, SHARED_FOLDER_NAME
 
 
 class HostService:
@@ -46,19 +43,27 @@ class HostService:
     def start(self):
         # fmt: off
         print(f"Starting VM at {self._vm_path}")
-        subprocess.run(["vmrun", "start", self._vm_path, "nogui" if self._headless else ""])
-        
+        gui_flag = "gui" if not self._headless else "nogui"
+        subprocess.run(["vmrun", "start", self._vm_path, gui_flag], check=True)
+
         print("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip()
 
         print("Updating guest side OpenOS...")
-        self._execute_commands_in_guest(["cd /home/user/openos", "git pull", "pip uninstall openos -y", "pip install ."])
+        self._execute_commands_in_guest(
+            [
+                "cd /home/user/openos",
+                "sudo git pull",
+                "sudo pip uninstall openos -y",
+                "sudo pip install .",
+            ]
+        )
 
         print(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
 
         print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
-        subprocess.run(["vmrun", "addSharedFolder", self._vm_path, "temp", self._shared_folder_path])
+        subprocess.run(["vmrun", "addSharedFolder", self._vm_path, SHARED_FOLDER_NAME, self._shared_folder_path])
 
         print(f"Starting guest service at {self._shared_folder_path}")
         cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
@@ -67,7 +72,9 @@ class HostService:
 
     def stop(self):
         print(f"Removing shared folder {self._shared_folder_path} from {self._vm_path}")
-        subprocess.run(["vmrun", "removeSharedFolder", self._vm_path, "temp"])
+        subprocess.run(
+            ["vmrun", "removeSharedFolder", self._vm_path, SHARED_FOLDER_NAME]
+        )
         print(f"Stopping VM at {self._vm_path}")
         subprocess.run(["vmrun", "stop", self._vm_path])
 
@@ -104,7 +111,7 @@ class HostService:
     #       some other cmds i can think of: click(x, y), type(long_text), run(cmd) from root, gibberlink mode lol.
 
     def read_frame(self) -> np.ndarray:
-        return np.copy(self._frame_buffer)
+        return self._frame_buffer
 
     def position_mouse(self, x, y):
         self._send_data({"type": "position_mouse", "data": {"x": x, "y": y}})

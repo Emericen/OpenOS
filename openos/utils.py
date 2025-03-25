@@ -4,7 +4,6 @@ import requests
 import zipfile
 from pathlib import Path
 from tqdm import tqdm
-from pynput import keyboard, mouse
 
 UBUNTU_AMD64_FILE_URL = (
     "https://huggingface.co/datasets/iiTzEddy/OpenOS/resolve/main/ubuntu-amd.zip"
@@ -15,48 +14,7 @@ UBUNTU_ARM_FILE_URL = (
 
 USER = "user"
 PASSWORD = "password"
-
-
-KEYBOARD_MAPPING = {
-    "shift": keyboard.Key.shift,
-    "ctrl": keyboard.Key.ctrl,
-    "alt": keyboard.Key.alt,
-    "space": keyboard.Key.space,
-    "backspace": keyboard.Key.backspace,
-    "enter": keyboard.Key.enter,
-    "tab": keyboard.Key.tab,
-    "esc": keyboard.Key.esc,
-    "up": keyboard.Key.up,
-    "down": keyboard.Key.down,
-    "left": keyboard.Key.left,
-    "right": keyboard.Key.right,
-    "home": keyboard.Key.home,
-    "end": keyboard.Key.end,
-    "page_up": keyboard.Key.page_up,
-    "page_down": keyboard.Key.page_down,
-    "delete": keyboard.Key.delete,
-    "caps_lock": keyboard.Key.caps_lock,
-    "f1": keyboard.Key.f1,
-    "f2": keyboard.Key.f2,
-    "f3": keyboard.Key.f3,
-    "f4": keyboard.Key.f4,
-    "f5": keyboard.Key.f5,
-    "f6": keyboard.Key.f6,
-    "f7": keyboard.Key.f7,
-    "f8": keyboard.Key.f8,
-    "f9": keyboard.Key.f9,
-    "f10": keyboard.Key.f10,
-    "f11": keyboard.Key.f11,
-    "f12": keyboard.Key.f12,
-}
-
-
-MOUSE_MAPPING = {
-    "left": mouse.Button.left,
-    "right": mouse.Button.right,
-    "middle": mouse.Button.middle,
-}
-
+SHARED_FOLDER_NAME = "temp"
 
 def get_ubuntu_vm_path(cache_dir: Path) -> str:
     # First check if VM is already unpacked
