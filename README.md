@@ -26,8 +26,10 @@ ubuntu.start()
 
 # Interact with the OS
 ubuntu.move_mouse(100, 120)
-ubuntu.button_down("right")
-ubuntu.button_up("right")
+ubuntu.mouse_button_down("right")
+ubuntu.mouse_button_up("right")
+ubuntu.keyboard_key_down("d")
+ubuntu.keyboard_key_up("d")
 
 # Capture and display the current screen as an BGRA array of size (720, 1280, 4)
 # NOTE: While read can be called anytime, frame data itself updates at ~30 FPS.
