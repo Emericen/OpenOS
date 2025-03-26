@@ -23,14 +23,8 @@ sudo update-alternatives --install /usr/bin/pip pip /usr/local/bin/pip3.10 1
 sudo update-alternatives --set pip /usr/local/bin/pip3.10
 echo "✅ Pip version set to: $(pip --version)"
 
-echo "📁 Cloning openos repo..."
-cd /home/user
-git clone https://github.com/Emericen/openos.git
-
-echo "📂 Installing openos package..."
-cd /home/user/openos
+echo "📂 Installing openos pre-requisites..."
 sudo apt-get install -y linux-libc-dev libevdev-dev
 sudo apt install -y build-essential python3.10-dev
-python3.10 -m pip install .
 
-echo "🎉 Setup complete! You can now run OpenOS."
+echo "🎉 Setup complete!"
