@@ -15,16 +15,16 @@ class GUI:
         self.running = True
 
     def run(self):
-        self.ubuntu_vm.start()
+        # self.ubuntu_vm.start()
         try:
             while self.running:
                 self._handle_display()
                 self._handle_input()
-                # self.clock.tick(60)
+                self.clock.tick(60)
         except KeyboardInterrupt:
             print("Keyboard interrupt")
         finally:
-            self.ubuntu_vm.stop()
+            # self.ubuntu_vm.stop()
             pygame.quit()
 
     def _handle_display(self):
@@ -60,9 +60,9 @@ class GUI:
                 button = find_button(pygame_button=event.button)
                 if button:
                     self.ubuntu_vm.mouse_button_up(button.name)
-            elif event.type == pygame.MOUSEWHEEL:
-                self.ubuntu_vm.scroll(event.rel[0], event.rel[1])
 
+            elif event.type == pygame.MOUSEWHEEL:
+                self.ubuntu_vm.scroll(event.x, event.y)
 
 if __name__ == "__main__":
     GUI().run()

@@ -52,10 +52,11 @@ class HostService:
         print("Updating guest side OpenOS...")
         self._execute_commands_in_guest(
             [
+                "cd /home/user",
+                "sudo git clone https://github.com/Emericen/openos.git",
                 "cd /home/user/openos",
-                "sudo git pull",
-                "sudo pip uninstall openos -y",
-                "sudo pip install .",
+                "sudo pip install openos -y",
+                "sudo git checkout add-vm-gui-for-human" # TODO: remove before merge
             ]
         )
 
