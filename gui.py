@@ -7,7 +7,7 @@ RESOLUTION = (1280, 720)
 
 class GUI:
     def __init__(self):
-        self.ubuntu_vm = OpenOS.create(headless=True)
+        self.ubuntu_vm = OpenOS.create(headless=False)
         pygame.init()
         pygame.event.set_grab(True)
         self.screen = pygame.display.set_mode(size=RESOLUTION)
@@ -15,7 +15,7 @@ class GUI:
         self.running = True
 
     def run(self):
-        # self.ubuntu_vm.start()
+        self.ubuntu_vm.start()
         try:
             while self.running:
                 self._handle_display()
@@ -24,7 +24,7 @@ class GUI:
         except KeyboardInterrupt:
             print("Keyboard interrupt")
         finally:
-            # self.ubuntu_vm.stop()
+            self.ubuntu_vm.stop()
             pygame.quit()
 
     def _handle_display(self):
