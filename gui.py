@@ -7,7 +7,7 @@ RESOLUTION = (1280, 720)
 
 class GUI:
     def __init__(self):
-        self.ubuntu_vm = OpenOS.create(headless=False)
+        self.ubuntu_vm = OpenOS.create(headless=True)
         pygame.init()
         pygame.event.set_grab(True)
         self.screen = pygame.display.set_mode(size=RESOLUTION)
