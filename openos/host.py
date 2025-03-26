@@ -49,17 +49,6 @@ class HostService:
         print("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip()
 
-        print("Updating guest side OpenOS...")
-        self._execute_commands_in_guest(
-            [
-                "cd /home/user",
-                "sudo git clone https://github.com/Emericen/openos.git",
-                "cd /home/user/openos",
-                "sudo pip install openos -y",
-                "sudo git checkout add-vm-gui-for-human" # TODO: remove before merge
-            ]
-        )
-
         print(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
 
