@@ -71,8 +71,14 @@ class HostService:
         logger.debug(" ".join(cmd))
         subprocess.run(cmd)
 
+        logger.info(f"Installing guest client at {self._shared_folder_path}")
+        cmd = [
+            'cd /home/user && if [ -d "openos" ]; then cd openos && git pull && cd .. ; else git clone https://github.com/Emericen/openos.git; fi',
+            "cd openos && pip install . --force-reinstall",
+        ]
+        self._execute_commands_in_guest(cmd)
+
         logger.info(f"Starting guest service at {self._shared_folder_path}")
-        self._install_guest_client()
         cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
 
@@ -101,13 +107,6 @@ class HostService:
         cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self._vm_path}" /bin/bash -c "{combined}"'
         logger.debug(cmd)
         subprocess.run(cmd, shell=True)
-
-    def _install_guest_client(self):
-        commands = [
-            'cd ~ && if [ -d "openos" ]; then cd openos && git pull && cd .. ; else git clone https://github.com/Emericen/openos.git; fi',
-            "cd openos && pip install . --force-reinstall",
-        ]
-        self._execute_commands_in_guest(commands)
 
     def _get_vm_ip(self):
         command = f'vmrun getGuestIPAddress "{self._vm_path}" -wait'
