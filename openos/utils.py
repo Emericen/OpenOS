@@ -21,11 +21,17 @@ SHARED_FOLDER_NAME = "temp"
 
 def configure_logger(name, log_file=None, level=logging.INFO):
     logger = logging.getLogger(name)
-    logger.setLevel(level)
-
-    # Avoid adding duplicate handlers if logger already exists
-    if not logger.handlers:
-        # Create a colored formatter for console
+    
+    # Only configure the root openos logger directly
+    if name == "openos":
+        # Clear existing handlers to avoid duplication
+        if logger.handlers:
+            for handler in logger.handlers[:]:
+                logger.removeHandler(handler)
+        
+        logger.setLevel(level)
+        
+        # Create formatters and handlers
         console_formatter = colorlog.ColoredFormatter(
             "%(log_color)s[%(levelname)s %(name)s] %(message)s",
             log_colors={
@@ -36,23 +42,22 @@ def configure_logger(name, log_file=None, level=logging.INFO):
                 'CRITICAL': 'red,bg_white',
             }
         )
-
-        # Create regular formatter for file logging
-        file_formatter = logging.Formatter(
-            "[%(levelname)s %(name)s] %(message)s", datefmt="%H:%M:%S"
-        )
-
-        # Create console handler with colored formatter
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(console_formatter)
         logger.addHandler(console_handler)
 
-        # Add file handler if log_file provided
         if log_file:
+            file_formatter = logging.Formatter(
+                "[%(levelname)s %(name)s] %(message)s", 
+                datefmt="%H:%M:%S"
+            )
             file_handler = logging.FileHandler(log_file)
             file_handler.setFormatter(file_formatter)
             logger.addHandler(file_handler)
-
+        
+        # Disable propagation to avoid root logger duplication
+        logger.propagate = False
+    
     return logger
 
 

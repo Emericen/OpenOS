@@ -3,9 +3,10 @@ import socket
 import subprocess
 import numpy as np
 from pathlib import Path
-from openos.utils import USER, PASSWORD, SHARED_FOLDER_NAME, configure_logger
+import logging
+from openos.utils import USER, PASSWORD, SHARED_FOLDER_NAME
 
-logger = configure_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HostService:
@@ -45,26 +46,30 @@ class HostService:
     def start(self):
         logger.info(f"Starting VM at {self._vm_path}")
         gui_flag = "gui" if not self._headless else "nogui"
+        logger.debug(" ".join(["vmrun", "start", self._vm_path, gui_flag]))
         subprocess.run(["vmrun", "start", self._vm_path, gui_flag], check=True)
 
         logger.info("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip()
+        logger.info(f"Detected guest IP: {self._guest_ip}")
 
+        cmd = ["vmrun", "enableSharedFolders", self._vm_path, "on"]
         logger.info(f"Enabling shared folders for {self._vm_path}")
-        subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
+        logger.debug(" ".join(cmd))
+        subprocess.run(cmd)
 
+        cmd = [
+            "vmrun",
+            "addSharedFolder",
+            self._vm_path,
+            SHARED_FOLDER_NAME,
+            str(self._shared_folder_path),
+        ]
         logger.info(
             f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}"
         )
-        subprocess.run(
-            [
-                "vmrun",
-                "addSharedFolder",
-                self._vm_path,
-                SHARED_FOLDER_NAME,
-                self._shared_folder_path,
-            ]
-        )
+        logger.debug(" ".join(cmd))
+        subprocess.run(cmd)
 
         logger.info(f"Starting guest service at {self._shared_folder_path}")
         self._install_guest_client()
@@ -94,6 +99,7 @@ class HostService:
         # NOTE: cmd output can NOT be seen on host
         combined = " && ".join(commands)
         cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self._vm_path}" /bin/bash -c "{combined}"'
+        logger.debug(cmd)
         subprocess.run(cmd, shell=True)
 
     def _install_guest_client(self):
@@ -105,6 +111,7 @@ class HostService:
 
     def _get_vm_ip(self):
         command = f'vmrun getGuestIPAddress "{self._vm_path}" -wait'
+        logger.debug(command)
         result = subprocess.run(
             command, shell=True, text=True, capture_output=True, encoding="utf-8"
         )

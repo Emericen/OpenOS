@@ -2,13 +2,14 @@ import os
 import json
 import socket
 import subprocess
+import logging
 from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
 from openos.input_mappings import find_key, find_button
-from openos.utils import PASSWORD, configure_logger
+from openos.utils import PASSWORD
 
-logger = configure_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class GuestService:
@@ -55,7 +56,7 @@ class GuestService:
     def _listen_for_control(self) -> bool:
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
-        logger.debug(f"Received command from {addr}: {message['data']}")
+        logger.info(f"Received command from {addr}: {message['data']}")
 
         if message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
