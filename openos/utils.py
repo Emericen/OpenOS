@@ -2,6 +2,8 @@ import os
 import platform
 import requests
 import zipfile
+import logging
+import colorlog
 from pathlib import Path
 from tqdm import tqdm
 
@@ -16,12 +18,52 @@ USER = "user"
 PASSWORD = "password"
 SHARED_FOLDER_NAME = "temp"
 
+
+def configure_logger(name, log_file=None, level=logging.INFO):
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+
+    # Avoid adding duplicate handlers if logger already exists
+    if not logger.handlers:
+        # Create a colored formatter for console
+        console_formatter = colorlog.ColoredFormatter(
+            "%(log_color)s[%(levelname)s %(name)s] %(message)s",
+            log_colors={
+                'DEBUG': 'cyan',
+                'INFO': 'green',
+                'WARNING': 'yellow',
+                'ERROR': 'red',
+                'CRITICAL': 'red,bg_white',
+            }
+        )
+
+        # Create regular formatter for file logging
+        file_formatter = logging.Formatter(
+            "[%(levelname)s %(name)s] %(message)s", datefmt="%H:%M:%S"
+        )
+
+        # Create console handler with colored formatter
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
+
+        # Add file handler if log_file provided
+        if log_file:
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(file_formatter)
+            logger.addHandler(file_handler)
+
+    return logger
+
+
 def get_ubuntu_vm_path(cache_dir: Path) -> str:
+    logger = configure_logger(__name__)
+
     # First check if VM is already unpacked
     vmx_files = list(cache_dir.glob("**/*.vmx"))
     if vmx_files:
         vm_path = str(vmx_files[0])
-        print(f"Using existing VM image at {vm_path}")
+        logger.info(f"Using existing VM image at {vm_path}")
         return vm_path
 
     # Check platform architecture
@@ -31,10 +73,11 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
     elif machine in ["amd64", "x86_64"]:
         file_url = UBUNTU_AMD64_FILE_URL
     else:
+        logger.error(f"Unsupported platform or architecture: {machine}")
         raise Exception("Unsupported platform or architecture.")
 
     # Download corresponding Ubuntu VM image
-    print(f"Downloading Ubuntu VM image from {file_url}")
+    logger.info(f"Downloading Ubuntu VM image from {file_url}")
     filename = os.path.basename(file_url)
     zip_path = cache_dir / filename
     response = requests.get(file_url, stream=True)
@@ -47,7 +90,7 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
                 pbar.update(len(chunk))
 
     # Extract ZIP file using Python's zipfile module (cross-platform)
-    print(f"Extracting VM image to {cache_dir}")
+    logger.info(f"Extracting VM image to {cache_dir}")
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
         for file in tqdm(zip_ref.infolist(), desc="Extracting files", unit="file"):
             zip_ref.extract(file, path=cache_dir)
@@ -58,5 +101,5 @@ def get_ubuntu_vm_path(cache_dir: Path) -> str:
     # Find the VMX file (search recursively)
     vmx_files = list(cache_dir.glob("**/*.vmx"))
     vm_path = str(vmx_files[0])
-    print(f"VM image installed at {vm_path}")
+    logger.info(f"VM image installed at {vm_path}")
     return vm_path

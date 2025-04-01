@@ -3,7 +3,9 @@ import socket
 import subprocess
 import numpy as np
 from pathlib import Path
-from openos.utils import USER, PASSWORD, SHARED_FOLDER_NAME
+from openos.utils import USER, PASSWORD, SHARED_FOLDER_NAME, configure_logger
+
+logger = configure_logger(__name__)
 
 
 class HostService:
@@ -20,7 +22,7 @@ class HostService:
         self._headless = headless
         self._vm_path = vm_path
         self._cache_dir = cache_dir
-        self._shared_folder_path = cache_dir / "temp"
+        self._shared_folder_path = cache_dir / SHARED_FOLDER_NAME
 
         if not self._shared_folder_path.exists():
             self._shared_folder_path.mkdir(parents=True, exist_ok=True)
@@ -41,31 +43,42 @@ class HostService:
     # -------------- VM Life Cycle Functions --------------
 
     def start(self):
-        # fmt: off
-        print(f"Starting VM at {self._vm_path}")
+        logger.info(f"Starting VM at {self._vm_path}")
         gui_flag = "gui" if not self._headless else "nogui"
         subprocess.run(["vmrun", "start", self._vm_path, gui_flag], check=True)
 
-        print("Waiting for VM to be ready...")
+        logger.info("Waiting for VM to be ready...")
         self._guest_ip = self._get_vm_ip()
 
-        print(f"Enabling shared folders for {self._vm_path}")
+        logger.info(f"Enabling shared folders for {self._vm_path}")
         subprocess.run(["vmrun", "enableSharedFolders", self._vm_path, "on"])
 
-        print(f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}")
-        subprocess.run(["vmrun", "addSharedFolder", self._vm_path, SHARED_FOLDER_NAME, self._shared_folder_path])
+        logger.info(
+            f"Enabling shared folder {self._shared_folder_path} for {self._vm_path}"
+        )
+        subprocess.run(
+            [
+                "vmrun",
+                "addSharedFolder",
+                self._vm_path,
+                SHARED_FOLDER_NAME,
+                self._shared_folder_path,
+            ]
+        )
 
-        print(f"Starting guest service at {self._shared_folder_path}")
+        logger.info(f"Starting guest service at {self._shared_folder_path}")
+        self._install_guest_client()
         cmd = ["DISPLAY=:0 /usr/bin/python3.10 /home/user/openos/openos/guest.py &"]
         self._execute_commands_in_guest(cmd)
-        # fmt: on
 
     def stop(self):
-        print(f"Removing shared folder {self._shared_folder_path} from {self._vm_path}")
+        logger.info(
+            f"Removing shared folder {self._shared_folder_path} from {self._vm_path}"
+        )
         subprocess.run(
             ["vmrun", "removeSharedFolder", self._vm_path, SHARED_FOLDER_NAME]
         )
-        print(f"Stopping VM at {self._vm_path}")
+        logger.info(f"Stopping VM at {self._vm_path}")
         subprocess.run(["vmrun", "stop", self._vm_path])
 
     def reset(self):
@@ -83,6 +96,13 @@ class HostService:
         cmd = f'vmrun -gu {USER} -gp {PASSWORD} runProgramInGuest "{self._vm_path}" /bin/bash -c "{combined}"'
         subprocess.run(cmd, shell=True)
 
+    def _install_guest_client(self):
+        commands = [
+            'cd ~ && if [ -d "openos" ]; then cd openos && git pull && cd .. ; else git clone https://github.com/Emericen/openos.git; fi',
+            "cd openos && pip install . --force-reinstall",
+        ]
+        self._execute_commands_in_guest(commands)
+
     def _get_vm_ip(self):
         command = f'vmrun getGuestIPAddress "{self._vm_path}" -wait'
         result = subprocess.run(
@@ -91,7 +111,7 @@ class HostService:
         if result.returncode == 0:
             return result.stdout.strip()
         else:
-            print(f"Failed to get the IP of virtual machine: {result.stderr}")
+            logger.error(f"Failed to get the IP of virtual machine: {result.stderr}")
             return None
 
     # -------------- Controller Functions --------------

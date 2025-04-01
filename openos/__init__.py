@@ -1,6 +1,6 @@
 from pathlib import Path
 from openos.host import HostService
-from openos.utils import get_ubuntu_vm_path, USER, PASSWORD, SHARED_FOLDER_NAME
+from openos.utils import get_ubuntu_vm_path
 from openos.input_mappings import find_key, find_button
 
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "openos"

@@ -6,7 +6,9 @@ from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
 from openos.input_mappings import find_key, find_button
-from openos.utils import PASSWORD
+from openos.utils import PASSWORD, configure_logger
+
+logger = configure_logger(__name__)
 
 
 class GuestService:
@@ -53,7 +55,7 @@ class GuestService:
     def _listen_for_control(self) -> bool:
         data, addr = self.control_socket.recvfrom(1024)
         message = json.loads(data.decode())
-        print(f"[{addr}]: {message['data']}")
+        logger.debug(f"Received command from {addr}: {message['data']}")
 
         if message["type"] == "move_mouse":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
@@ -95,26 +97,29 @@ class GuestService:
             self._frame_buffer._mmap.close()
             self._frame_buffer = None
         self.control_socket.close()
+        logger.info("GuestService terminated")
 
     def _allow_udp_on_port(self, port: int):
         try:
-            print("Setting up firewall rules...")
+            logger.info(f"Setting up firewall rules for port {port}/udp...")
             subprocess.run(
                 ["sudo", "-S", "ufw", "allow", f"{port}/udp"],
                 input=PASSWORD.encode(),
                 check=True,
             )
         except Exception as e:
-            print(f"Failed to set up firewall: {e}")
+            logger.error(f"Failed to set up firewall: {e}")
 
 
 if __name__ == "__main__":
+    logger.info("Starting GuestService...")
     with mss(with_cursor=True) as sct:
         service = GuestService(sct)
         try:
             running = True
+            logger.info("GuestService initialized and running")
             while running:
                 running = service.update()
         except KeyboardInterrupt:
             service.terminate()
-            print("GuestService stopped")
+            logger.info("GuestService stopped by keyboard interrupt")
