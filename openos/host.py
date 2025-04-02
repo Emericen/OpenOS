@@ -19,8 +19,7 @@ class HostService:
         3. Reading the VM's frame buffer.
     """
 
-    def __init__(self, cache_dir: Path, vm_path: str, headless: bool = False):
-        self._headless = headless
+    def __init__(self, cache_dir: Path, vm_path: str):
         self._vm_path = vm_path
         self._cache_dir = cache_dir
         self._shared_folder_path = cache_dir / SHARED_FOLDER_NAME
@@ -43,9 +42,9 @@ class HostService:
 
     # -------------- VM Life Cycle Functions --------------
 
-    def start(self):
+    def start(self, headless: bool = False):
         logger.info(f"Starting VM at {self._vm_path}")
-        gui_flag = "gui" if not self._headless else "nogui"
+        gui_flag = "gui" if not headless else "nogui"
         logger.debug(" ".join(["vmrun", "start", self._vm_path, gui_flag]))
         subprocess.run(["vmrun", "start", self._vm_path, gui_flag], check=True)
 
