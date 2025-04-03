@@ -34,7 +34,7 @@ if __name__ == "__main__":
     ubuntu.mouse_button_down("RIGHT")
     time.sleep(0.1)  # don't click too fast
     ubuntu.mouse_button_up("RIGHT")
-    time.sleep(0.1)  # don't read frame too soon so we see drop down menu
+    time.sleep(0.2)  # don't read frame too soon so we see drop down menu
     show_frame(ubuntu.read_frame(), video_writer)
 
     print("Done")

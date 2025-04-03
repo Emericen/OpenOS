@@ -6,10 +6,114 @@ import logging
 from mss import mss
 import numpy as np
 from pynput import keyboard, mouse
-from openos.input_mappings import find_key, find_button
 from openos.utils import PASSWORD
 
 logger = logging.getLogger(__name__)
+
+
+KEYBOARD_MAPPING = [
+    ("ESC", keyboard.Key.esc),
+    ("ENTER", keyboard.Key.enter),
+    ("BACKSPACE", keyboard.Key.backspace),
+    ("TAB", keyboard.Key.tab),
+    ("SPACE", keyboard.Key.space),
+    ("LEFT", keyboard.Key.left),
+    ("RIGHT", keyboard.Key.right),
+    ("UP", keyboard.Key.up),
+    ("DOWN", keyboard.Key.down),
+    ("A", keyboard.KeyCode.from_char("a")),
+    ("B", keyboard.KeyCode.from_char("b")),
+    ("C", keyboard.KeyCode.from_char("c")),
+    ("D", keyboard.KeyCode.from_char("d")),
+    ("E", keyboard.KeyCode.from_char("e")),
+    ("F", keyboard.KeyCode.from_char("f")),
+    ("G", keyboard.KeyCode.from_char("g")),
+    ("H", keyboard.KeyCode.from_char("h")),
+    ("I", keyboard.KeyCode.from_char("i")),
+    ("J", keyboard.KeyCode.from_char("j")),
+    ("K", keyboard.KeyCode.from_char("k")),
+    ("L", keyboard.KeyCode.from_char("l")),
+    ("M", keyboard.KeyCode.from_char("m")),
+    ("N", keyboard.KeyCode.from_char("n")),
+    ("O", keyboard.KeyCode.from_char("o")),
+    ("P", keyboard.KeyCode.from_char("p")),
+    ("Q", keyboard.KeyCode.from_char("q")),
+    ("R", keyboard.KeyCode.from_char("r")),
+    ("S", keyboard.KeyCode.from_char("s")),
+    ("T", keyboard.KeyCode.from_char("t")),
+    ("U", keyboard.KeyCode.from_char("u")),
+    ("V", keyboard.KeyCode.from_char("v")),
+    ("W", keyboard.KeyCode.from_char("w")),
+    ("X", keyboard.KeyCode.from_char("x")),
+    ("Y", keyboard.KeyCode.from_char("y")),
+    ("Z", keyboard.KeyCode.from_char("z")),
+    ("0", keyboard.KeyCode.from_char("0")),
+    ("1", keyboard.KeyCode.from_char("1")),
+    ("2", keyboard.KeyCode.from_char("2")),
+    ("3", keyboard.KeyCode.from_char("3")),
+    ("4", keyboard.KeyCode.from_char("4")),
+    ("5", keyboard.KeyCode.from_char("5")),
+    ("6", keyboard.KeyCode.from_char("6")),
+    ("7", keyboard.KeyCode.from_char("7")),
+    ("8", keyboard.KeyCode.from_char("8")),
+    ("9", keyboard.KeyCode.from_char("9")),
+    ("F1", keyboard.Key.f1),
+    ("F2", keyboard.Key.f2),
+    ("F3", keyboard.Key.f3),
+    ("F4", keyboard.Key.f4),
+    ("F5", keyboard.Key.f5),
+    ("F6", keyboard.Key.f6),
+    ("F7", keyboard.Key.f7),
+    ("F8", keyboard.Key.f8),
+    ("F9", keyboard.Key.f9),
+    ("F10", keyboard.Key.f10),
+    ("F11", keyboard.Key.f11),
+    ("F12", keyboard.Key.f12),
+    ("[", keyboard.KeyCode.from_char("[")),
+    ("]", keyboard.KeyCode.from_char("]")),
+    ("\\", keyboard.KeyCode.from_char("\\")),
+    (";", keyboard.KeyCode.from_char(";")),
+    ("'", keyboard.KeyCode.from_char("'")),
+    (",", keyboard.KeyCode.from_char(",")),
+    (".", keyboard.KeyCode.from_char(".")),
+    ("/", keyboard.KeyCode.from_char("/")),
+    ("`", keyboard.KeyCode.from_char("`")),
+    ("(", keyboard.KeyCode.from_char("(")),
+    (")", keyboard.KeyCode.from_char(")")),
+    ("{", keyboard.KeyCode.from_char("{")),
+    ("}", keyboard.KeyCode.from_char("}")),
+    ("=", keyboard.KeyCode.from_char("=")),
+    ("-", keyboard.KeyCode.from_char("-")),
+    ("_", keyboard.KeyCode.from_char("_")),
+    ("+", keyboard.KeyCode.from_char("+")),
+    ("*", keyboard.KeyCode.from_char("*")),
+    ("#", keyboard.KeyCode.from_char("#")),
+    ("%", keyboard.KeyCode.from_char("%")),
+    ("CAPSLOCK", keyboard.Key.caps_lock),
+    ("DELETE", keyboard.Key.delete),
+    ("HOME", keyboard.Key.home),
+    ("END", keyboard.Key.end),
+    ("PAGEUP", keyboard.Key.page_up),
+    ("PAGEDOWN", keyboard.Key.page_down),
+    ("LEFT_CTRL", keyboard.Key.ctrl_l),
+    ("RIGHT_CTRL", keyboard.Key.ctrl_r),
+    ("LEFT_SHIFT", keyboard.Key.shift_l),
+    ("RIGHT_SHIFT", keyboard.Key.shift_r),
+    ("LEFT_ALT", keyboard.Key.alt_l),
+    ("RIGHT_ALT", keyboard.Key.alt_r),
+    ("LEFT_CMD", keyboard.Key.cmd_l),
+    ("RIGHT_CMD", keyboard.Key.cmd_r),
+]
+KEYBOARD_NAME_TO_KEY = {key[0]: key[1] for key in KEYBOARD_MAPPING}
+KEYBOARD_KEY_TO_NAME = {key[1]: key[0] for key in KEYBOARD_MAPPING}
+
+MOUSE_MAPPING = [
+    ("LEFT", mouse.Button.left),
+    ("RIGHT", mouse.Button.right),
+    ("MIDDLE", mouse.Button.middle),
+]
+MOUSE_NAME_TO_BUTTON = {button[0]: button[1] for button in MOUSE_MAPPING}
+MOUSE_BUTTON_TO_NAME = {button[1]: button[0] for button in MOUSE_MAPPING}
 
 
 class GuestService:
@@ -66,27 +170,35 @@ class GuestService:
             self.mouse_controller.position = (x, y)
         elif message["type"] == "button_down":
             button_str = message["data"]["button"]
-            button = find_button(name=button_str)
-            if button:
-                self.mouse_controller.press(button.pynput_button)
+            button = MOUSE_NAME_TO_BUTTON.get(button_str)
+            if button is None:
+                logger.warning(f"Button {button_str} not found")
+            else:
+                self.mouse_controller.press(button)
         elif message["type"] == "button_up":
             button_str = message["data"]["button"]
-            button = find_button(name=button_str)
-            if button:
-                self.mouse_controller.release(button.pynput_button)
+            button = MOUSE_NAME_TO_BUTTON.get(button_str)
+            if button is None:
+                logger.warning(f"Button {button_str} not found")
+            else:
+                self.mouse_controller.release(button)
         elif message["type"] == "scroll":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.scroll(dx, dy)
         elif message["type"] == "key_down":
             key_str = message["data"]["key"]
-            key = find_key(name=key_str)
-            if key:
-                self.keyboard_controller.press(key.pynput_key)
+            key = KEYBOARD_NAME_TO_KEY.get(key_str)
+            if key is None:
+                logger.warning(f"Key {key_str} not found")
+            else:
+                self.keyboard_controller.press(key)
         elif message["type"] == "key_up":
             key_str = message["data"]["key"]
-            key = find_key(name=key_str)
-            if key:
-                self.keyboard_controller.release(key.pynput_key)
+            key = KEYBOARD_NAME_TO_KEY.get(key_str)
+            if key is None:
+                logger.warning(f"Key {key_str} not found")
+            else:
+                self.keyboard_controller.release(key)
         elif message["type"] == "stop":
             self.terminate()
             return False
