@@ -2,9 +2,7 @@
 
 OpenOS is a Python interactable operating system for both human and AI agents.
 
-# Quick Start
-
-Make sure you have VMware installed. Test by running
+To get started, make sure you have VMware installed. Test by running
 
 ```bash
 vmrun list
