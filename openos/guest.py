@@ -170,23 +170,35 @@ class GuestService:
             self.mouse_controller.position = (x, y)
         elif message["type"] == "button_down":
             button_str = message["data"]["button"]
-            button = MOUSE_NAME_TO_BUTTON[button_str]
-            self.mouse_controller.press(button)
+            button = MOUSE_NAME_TO_BUTTON.get(button_str)
+            if button is None:
+                logger.warning(f"Button {button_str} not found")
+            else:
+                self.mouse_controller.press(button)
         elif message["type"] == "button_up":
             button_str = message["data"]["button"]
-            button = MOUSE_NAME_TO_BUTTON[button_str]
-            self.mouse_controller.release(button)
+            button = MOUSE_NAME_TO_BUTTON.get(button_str)
+            if button is None:
+                logger.warning(f"Button {button_str} not found")
+            else:
+                self.mouse_controller.release(button)
         elif message["type"] == "scroll":
             dx, dy = message["data"]["dx"], message["data"]["dy"]
             self.mouse_controller.scroll(dx, dy)
         elif message["type"] == "key_down":
             key_str = message["data"]["key"]
-            key = KEYBOARD_NAME_TO_KEY[key_str]
-            self.keyboard_controller.press(key)
+            key = KEYBOARD_NAME_TO_KEY.get(key_str)
+            if key is None:
+                logger.warning(f"Key {key_str} not found")
+            else:
+                self.keyboard_controller.press(key)
         elif message["type"] == "key_up":
             key_str = message["data"]["key"]
-            key = KEYBOARD_NAME_TO_KEY[key_str]
-            self.keyboard_controller.release(key)
+            key = KEYBOARD_NAME_TO_KEY.get(key_str)
+            if key is None:
+                logger.warning(f"Key {key_str} not found")
+            else:
+                self.keyboard_controller.release(key)
         elif message["type"] == "stop":
             self.terminate()
             return False
