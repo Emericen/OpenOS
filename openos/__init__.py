@@ -2,7 +2,6 @@ from pathlib import Path
 import logging
 from openos.host import HostService
 from openos.utils import get_ubuntu_vm_path, configure_logger
-from openos.input_mappings import find_key, find_button
 
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "openos"
 
@@ -25,4 +24,4 @@ class OpenOS:
         return HostService(cache_dir=cache_dir, vm_path=vm_path)
 
 
-__all__ = ["OpenOS", "find_key", "find_button"]
+__all__ = ["OpenOS"]
