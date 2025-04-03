@@ -16,7 +16,14 @@ You should see a list of VMs. Now you're ready to install OpenOS, clone this pro
 pip install .
 ```
 
-Use OpenOS like this:
+You can start by running an example
+
+```
+python examples/e1_move_and_right_click.py
+```
+
+
+Additionally, you can use OpenOS like this:
 
 ```python
 from openos import OpenOS
@@ -26,10 +33,10 @@ ubuntu.start()
 
 # Interact with the OS
 ubuntu.move_mouse(100, 120)
-ubuntu.mouse_button_down("right")
-ubuntu.mouse_button_up("right")
-ubuntu.keyboard_key_down("d")
-ubuntu.keyboard_key_up("d")
+ubuntu.mouse_button_down("RIGHT")
+ubuntu.mouse_button_up("RIGHT")
+ubuntu.keyboard_key_down("D")
+ubuntu.keyboard_key_up("D")
 
 # Capture and display the current screen as an BGRA array of size (720, 1280, 4)
 # NOTE: While read can be called anytime, frame data itself updates at ~30 FPS.
@@ -57,18 +64,3 @@ See [host.py](openos/host.py) for all APIs
 4. Logout of the OS and log back in. When entering password, select the gear icon on bottom right and switch to `Ubuntu on Xorg`.
 5. Log back in, right click anywhere, and go to `Display Settings`. Change resolution to `1280x720`.
 
-## Work In Progress
-Ranked by priority
-
-- Strengthen pygame window in [gui.py](gui.py).
-- Test snapshot saving & loading.
-- Switch from VMWare to Qemu / KVM.
-  - Open source and faster and native to linux.
-  - Has GPU pass-through.
-  - Allows for more control to add more docker-like features s.a. building, hot reloading, and logging.
-  - See [1](https://www.youtube.com/watch?v=Kq849CpGd88) and [2](https://www.youtube.com/watch?v=BgZHbCDFODk)
-- Add Windows as selectable OS.
-- Add more types of controls (?)
-  - See comments in [host.py](openos/host.py)
-- Add Audio support (?)
-  - Consider using `pyaudio` or `ffmpeg`
