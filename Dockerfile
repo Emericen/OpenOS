@@ -20,6 +20,7 @@ RUN set -eu && \
         nginx \
         swtpm \
         procps \
+        python3 \
         iptables \
         iproute2 \
         apt-utils \
