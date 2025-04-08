@@ -1,4 +1,4 @@
-FROM debian:trixie-slim
+FROM python:3.10-slim-bookworm
 
 ARG VERSION_ARG="0.0"
 ARG VERSION_VNC="1.6.0"
@@ -60,5 +60,9 @@ ENV BOOT="alpine"
 ENV CPU_CORES="2"
 ENV RAM_SIZE="2G"
 ENV DISK_SIZE="16G"
+
+# Install Python dependencies
+COPY requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "/run/entry.sh"]
