@@ -1,9 +1,12 @@
 services:
-  qemu:
-    image: qemux/qemu
-    container_name: qemu
+  qemu-vm:
+    build: .
+    container_name: ubuntu
     environment:
-      BOOT: "alpine"
+      BOOT: "ubuntu"
+      CPU_CORES: "4"
+      RAM_SIZE: "8G"
+      DISK_SIZE: "20G"
     devices:
       - /dev/kvm
       - /dev/net/tun
@@ -11,7 +14,8 @@ services:
       - NET_ADMIN
     ports:
       - 8006:8006
+      - 8007:8007
     volumes:
-      - ./qemu:/storage
+      - ./storage:/storage
     restart: always
     stop_grace_period: 2m
