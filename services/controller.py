@@ -2,6 +2,7 @@ import json
 import socket
 from datetime import datetime
 from services.log_setup import setup_logging
+from services.constants import VALID_QEMU_KEYS
 
 logging = setup_logging()
 
@@ -55,19 +56,108 @@ class Controller:
         )
 
     def mouse_move(self, x: int, y: int):
-        pass
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {"type": "abs", "data": {"axis": "x", "value": x}},
+                        {"type": "abs", "data": {"axis": "y", "value": y}},
+                    ]
+                },
+            }
+        )
 
     def mouse_position(self, x: int, y: int):
-        pass
+        """
+        Move mouse to absolute position
 
-    def mouse_scroll(self, x: int, y: int):
-        pass
+        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
+        """
+
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {"type": "abs", "data": {"axis": "x", "value": x}},
+                        {"type": "abs", "data": {"axis": "y", "value": y}},
+                    ]
+                },
+            }
+        )
+
+    def mouse_scroll_up(self):
+        """
+        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.InputButton
+        """
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {"type": "btn", "data": {"down": True, "button": "wheel-up"}}
+                    ]
+                },
+            }
+        )
+
+    def mouse_scroll_down(self):
+        """
+        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.InputButton
+        """
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {"type": "btn", "data": {"down": True, "button": "wheel-down"}}
+                    ]
+                },
+            }
+        )
 
     def keyboard_key_down(self, key: str):
-        pass
+        """
+        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
+        """
+        if not key in VALID_QEMU_KEYS:
+            return
+
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {
+                            "type": "key",
+                            "data": {"down": True, "type": "qcode", "data": key},
+                        }
+                    ]
+                },
+            }
+        )
 
     def keyboard_key_up(self, key: str):
-        pass
+        """
+        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
+        """
+        if not key in VALID_QEMU_KEYS:
+            return
+
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {
+                            "type": "key",
+                            "data": {"down": False, "type": "qcode", "data": key},
+                        }
+                    ]
+                },
+            }
+        )
 
     def screenshot(self, filename: str = None, file_format: str = "png"):
         """
