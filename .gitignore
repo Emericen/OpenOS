@@ -1,3 +1,4 @@
 venv/
 storage/
+shared/
 test.py
