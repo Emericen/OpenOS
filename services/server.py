@@ -1,35 +1,65 @@
-import sys
-import logging
+import json
+import socket
 from websocket_server import WebsocketServer
+from services.controller import Controller
+from services.log_setup import setup_logging
 
-LOGGING_FMT = "%(asctime)s [%(levelname)s] %(message)s"
-logging.basicConfig(
-    level=logging.INFO, stream=sys.stdout, format=LOGGING_FMT, force=True
-)
+logging = setup_logging()
 
 
-class VMGatewayServer:
-    def __init__(self, host="0.0.0.0", port=8007):
-        self.server = WebsocketServer(host, port)
+class ControlServer:
+    def __init__(self):
+        self.host, self.port = "0.0.0.0", 8007
+
+        self.server = WebsocketServer(host=self.host, port=self.port)
         self.server.set_fn_new_client(self.new_client)
         self.server.set_fn_client_left(self.client_left)
         self.server.set_fn_message_received(self.message_received)
 
+        self.controller = Controller()
+
     def new_client(self, client, server):
-        logging.info("New client connected")
+        hostname = socket.gethostname()
+        server.send_message(client, f"Hello from {hostname}")
+        logging.info(f"New client connected with id: {client['id']}")
 
     def client_left(self, client, server):
-        logging.info("Client disconnected")
+        logging.info(f"Client with id: {client['id']} left")
 
     def message_received(self, client, server, message):
-        logging.info(f"Message received: {message}")
+        try:
+            message_json = json.loads(message)
+        except json.JSONDecodeError:
+            logging.error(f"Invalid JSON: {message}")
+            server.send_message(
+                client,
+                json.dumps({"error": "Invalid JSON format", "raw_message": message}),
+            )
+            return
+
+        # Ensure required keys are present
+        if "type" not in message_json or "data" not in message_json:
+            logging.error(f"Missing 'type' or 'data' in JSON: {message_json}")
+            server.send_message(
+                client,
+                json.dumps({"error": "Message must contain 'type' and 'data' fields"}),
+            )
+            return
+
+        message_type, message_data = message_json["type"], message_json["data"]
+
+        if message_type == "debug":
+            logging.debug(message_data)
+        elif message_type in self.controller.actions:
+            self.controller.actions[message_type](**message_data)
+        else:
+            logging.error(f"Unknown message type: {message_type}")
 
     def run(self):
-        logging.info("Starting WebSocket server...")
+        logging.info(f"Websocket server started on {self.host}:{self.port}")
         self.server.run_forever()
 
 
 if __name__ == "__main__":
-    logging.info("Starting VMGatewayServer...")
-    server = VMGatewayServer()
+    server = ControlServer()
     server.run()

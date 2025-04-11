@@ -4,6 +4,7 @@ services:
     container_name: ubuntu
     environment:
       BOOT: "ubuntu"
+      HOST_PORTS: "8007"
       CPU_CORES: "4"
       RAM_SIZE: "8G"
       DISK_SIZE: "20G"
@@ -17,5 +18,6 @@ services:
       - 8007:8007
     volumes:
       - ./storage:/storage
+      - ./shared:/shared
     restart: always
     stop_grace_period: 2m

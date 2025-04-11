@@ -53,6 +53,7 @@ COPY --chmod=664 ./web/conf/defaults.json /usr/share/novnc
 COPY --chmod=664 ./web/conf/mandatory.json /usr/share/novnc
 COPY --chmod=744 ./web/conf/nginx.conf /etc/nginx/sites-enabled/web.conf
 COPY --chmod=755 ./services /services
+COPY setup.py /
 
 VOLUME /storage
 EXPOSE 22 5900 8006 8007
@@ -65,7 +66,6 @@ ENV DISK_SIZE="16G"
 # Install Python dependencies
 COPY requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
-
-# CMD ["python3", "-u", "/services/server.py"]
+RUN pip install -e /
 
 ENTRYPOINT ["/usr/bin/tini", "-s", "/run/entry.sh"]
