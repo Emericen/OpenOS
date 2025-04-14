@@ -12,21 +12,22 @@ class ControlServer:
         self.host, self.port = "0.0.0.0", 8007
 
         self.server = WebsocketServer(host=self.host, port=self.port)
-        self.server.set_fn_new_client(self.new_client)
-        self.server.set_fn_client_left(self.client_left)
-        self.server.set_fn_message_received(self.message_received)
+        self.server.set_fn_new_client(self.on_new_client)
+        self.server.set_fn_client_left(self.on_client_left)
+        self.server.set_fn_message_received(self.on_message_received)
 
         self.controller = Controller()
 
-    def new_client(self, client, server):
+    def on_new_client(self, client, server):
         hostname = socket.gethostname()
         server.send_message(client, f"Hello from {hostname}")
         logging.info(f"New client connected with id: {client['id']}")
 
-    def client_left(self, client, server):
+    def on_client_left(self, client, server):
         logging.info(f"Client with id: {client['id']} left")
 
-    def message_received(self, client, server, message):
+    def on_message_received(self, client, server, message):
+        # Convert string message to json
         try:
             message_json = json.loads(message)
         except json.JSONDecodeError:
@@ -37,7 +38,7 @@ class ControlServer:
             )
             return
 
-        # Ensure required keys are present
+        # Ensure required keys are present in the message json
         if "type" not in message_json or "data" not in message_json:
             logging.error(f"Missing 'type' or 'data' in JSON: {message_json}")
             server.send_message(
@@ -48,8 +49,11 @@ class ControlServer:
 
         message_type, message_data = message_json["type"], message_json["data"]
 
+        # Handle debug messages
         if message_type == "debug":
             logging.debug(message_data)
+
+        # Handle controller actions / perform valid actions on guest VM
         elif message_type in self.controller.actions:
             self.controller.actions[message_type](**message_data)
         else:
