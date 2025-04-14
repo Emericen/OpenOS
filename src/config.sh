@@ -32,12 +32,6 @@ fi
 if [ -d "/shared" ] && [[ "${BOOT_MODE,,}" != "windows"* ]]; then
   DEV_OPTS+=" -fsdev local,id=fsdev0,path=/shared,security_model=none"
   DEV_OPTS+=" -device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=shared"
-
-  # /usr/lib/qemu/virtiofsd --socket-path=/tmp/vhostqemu0 -o source=/shared -o cache=auto &
-
-  # DEV_OPTS+=" -object memory-backend-file,id=mem1,size=1G,mem-path=/dev/shm,share=on"
-  # DEV_OPTS+=" -chardev socket,id=char0,path=/tmp/vhostqemu0"
-  # DEV_OPTS+=" -device vhost-user-fs-pci,chardev=char0,tag=shared"
 fi
 
 [ -n "$USB" ] && [[ "${USB,,}" != "no"* ]] && USB_OPTS="-device $USB -device usb-tablet"
