@@ -64,7 +64,6 @@ if __name__ == "__main__":
       Example:
         python test.py mouse 50 50  # Moves cursor to the center of the screen
 
-      NOTE: QMP screenshot does not have cursor shown, so you might not be able to visualize this. Display streaming with `mss(with_cursor=True)` is recommended and is WIP.
     Scrolling:
       python test.py scroll <direction>
       
@@ -83,7 +82,7 @@ if __name__ == "__main__":
         
       Note: No parameters required; runs a demo typing sequence
     """
-    
+
     if sys.argv[1] == "mouse":
         x, y = int(sys.argv[2]), int(sys.argv[3])
         x, y = int(x / 100 * 32767), int(y / 100 * 32767)
