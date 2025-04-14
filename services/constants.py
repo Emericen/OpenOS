@@ -1,3 +1,7 @@
+"""
+Reference:
+    https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.QKeyCode
+"""
 # fmt: off
 VALID_QEMU_KEYS = {
     "unmapped", "pause", "ro", "kp_comma", "kp_equals", "power", "hiragana", "henkan", 
@@ -20,4 +24,14 @@ VALID_QEMU_KEYS = {
 }
 # fmt: on
 
-VALID_QEMU_MOUSE_BUTTONS = {"left", "right", "middle", "wheel-up", "wheel-down"}
+"""
+Reference:
+    https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.InputButton
+"""
+VALID_QEMU_MOUSE_BUTTONS = {"left", "right", "middle"}
+VALID_QEMU_MOUSE_SCROLL_BUTTONS = {
+    "wheel-up",
+    "wheel-down",
+    "wheel-left",
+    "wheel-right",
+}

@@ -2,9 +2,26 @@ import json
 import socket
 from datetime import datetime
 from services.log_setup import setup_logging
-from services.constants import VALID_QEMU_KEYS
+from services.constants import (
+    VALID_QEMU_KEYS,
+    VALID_QEMU_MOUSE_BUTTONS,
+    VALID_QEMU_MOUSE_SCROLL_BUTTONS,
+)
 
 logging = setup_logging()
+
+"""
+QEMU Machine Protocol (QMP)
+
+    General Documentation:    
+        https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html
+
+    Input send event: 
+        https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
+
+    Screendump:
+        https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.screendump
+"""
 
 
 class Controller:
@@ -21,7 +38,6 @@ class Controller:
         self.actions = {
             "mouse_btn_down": self.mouse_btn_down,
             "mouse_btn_up": self.mouse_btn_up,
-            "mouse_move": self.mouse_move,
             "mouse_position": self.mouse_position,
             "mouse_scroll": self.mouse_scroll,
             "keyboard_key_down": self.keyboard_key_down,
@@ -30,9 +46,9 @@ class Controller:
         }
 
     def mouse_btn_down(self, btn: str):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
-        """
+        if not btn in VALID_QEMU_MOUSE_BUTTONS:
+            return
+
         _ = self._send_to_qmp_socket(
             {
                 "execute": "input-send-event",
@@ -43,9 +59,9 @@ class Controller:
         )
 
     def mouse_btn_up(self, btn: str):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
-        """
+        if not btn in VALID_QEMU_MOUSE_BUTTONS:
+            return
+
         _ = self._send_to_qmp_socket(
             {
                 "execute": "input-send-event",
@@ -55,25 +71,9 @@ class Controller:
             }
         )
 
-    def mouse_move(self, x: int, y: int):
-        _ = self._send_to_qmp_socket(
-            {
-                "execute": "input-send-event",
-                "arguments": {
-                    "events": [
-                        {"type": "abs", "data": {"axis": "x", "value": x}},
-                        {"type": "abs", "data": {"axis": "y", "value": y}},
-                    ]
-                },
-            }
-        )
-
     def mouse_position(self, x: int, y: int):
-        """
-        Move mouse to absolute position
-
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
-        """
+        if not 0 <= x <= 32767 or not 0 <= y <= 32767:
+            return
 
         _ = self._send_to_qmp_socket(
             {
@@ -87,40 +87,20 @@ class Controller:
             }
         )
 
-    def mouse_scroll_up(self):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.InputButton
-        """
-        _ = self._send_to_qmp_socket(
-            {
-                "execute": "input-send-event",
-                "arguments": {
-                    "events": [
-                        {"type": "btn", "data": {"down": True, "button": "wheel-up"}}
-                    ]
-                },
-            }
-        )
+    def mouse_scroll(self, btn: str):
+        if not btn in VALID_QEMU_MOUSE_SCROLL_BUTTONS:
+            return
 
-    def mouse_scroll_down(self):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#enum-QMP-ui.InputButton
-        """
         _ = self._send_to_qmp_socket(
             {
                 "execute": "input-send-event",
                 "arguments": {
-                    "events": [
-                        {"type": "btn", "data": {"down": True, "button": "wheel-down"}}
-                    ]
+                    "events": [{"type": "btn", "data": {"down": True, "button": btn}}]
                 },
             }
         )
 
     def keyboard_key_down(self, key: str):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
-        """
         if not key in VALID_QEMU_KEYS:
             return
 
@@ -131,7 +111,10 @@ class Controller:
                     "events": [
                         {
                             "type": "key",
-                            "data": {"down": True, "type": "qcode", "data": key},
+                            "data": {
+                                "down": True,
+                                "key": {"type": "qcode", "data": key},
+                            },
                         }
                     ]
                 },
@@ -139,9 +122,6 @@ class Controller:
         )
 
     def keyboard_key_up(self, key: str):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.input-send-event
-        """
         if not key in VALID_QEMU_KEYS:
             return
 
@@ -152,7 +132,10 @@ class Controller:
                     "events": [
                         {
                             "type": "key",
-                            "data": {"down": False, "type": "qcode", "data": key},
+                            "data": {
+                                "down": False,
+                                "key": {"type": "qcode", "data": key},
+                            },
                         }
                     ]
                 },
@@ -160,12 +143,12 @@ class Controller:
         )
 
     def screenshot(self, filename: str = None, file_format: str = "png"):
-        """
-        Reference: https://qemu-project.gitlab.io/qemu/interop/qemu-qmp-ref.html#command-QMP-ui.screendump
-        """
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            filename = f"/shared/screenshot_{timestamp}.{file_format}"
+            filename = f"screenshot_{timestamp}.{file_format}"
+
+        if not filename.startswith("/shared/"):
+            filename = f"/shared/{filename}"
 
         _ = self._send_to_qmp_socket(
             {
