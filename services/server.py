@@ -1,5 +1,6 @@
 import json
 import socket
+import re
 from websocket_server import WebsocketServer
 from services.controller import Controller
 from services.log_setup import setup_logging
@@ -18,6 +19,17 @@ class ControlServer:
 
         self.controller = Controller()
 
+        # Define command patterns for text-based protocol
+        self.command_patterns = {
+            r"^MOUSE\s+MOVE\s+(\d+)\s+(\d+)$": self.controller.handle_mouse_move,
+            r"^MOUSE\s+DOWN\s+([A-Z]+)$": self.controller.handle_mouse_down,
+            r"^MOUSE\s+UP\s+([A-Z]+)$": self.controller.handle_mouse_up,
+            r"^SCROLL\s+([A-Z]+)$": self.controller.handle_scroll,
+            r"^KEY\s+DOWN\s+([A-Z0-9_]+)$": self.controller.handle_key_down,
+            r"^KEY\s+UP\s+([A-Z0-9_]+)$": self.controller.handle_key_up,
+            r"^SCREENSHOT(?:\s+(.+))?$": self.controller.handle_screenshot,
+        }
+
     def on_new_client(self, client, server):
         hostname = socket.gethostname()
         server.send_message(client, f"Hello from {hostname}")
@@ -27,37 +39,31 @@ class ControlServer:
         logging.info(f"Client with id: {client['id']} left")
 
     def on_message_received(self, client, server, message):
-        # Convert string message to json
-        try:
-            message_json = json.loads(message)
-        except json.JSONDecodeError:
-            logging.error(f"Invalid JSON: {message}")
+        logging.debug(f"[{client['id']}] {message}")
+
+        # Process the command
+        success, error_msg = self.process_command(message.upper())
+
+        if not success:
+            logging.error(error_msg)
             server.send_message(
                 client,
-                json.dumps({"error": "Invalid JSON format", "raw_message": message}),
+                json.dumps({"error": error_msg, "raw_message": message}),
             )
-            return
 
-        # Ensure required keys are present in the message json
-        if "type" not in message_json or "data" not in message_json:
-            logging.error(f"Missing 'type' or 'data' in JSON: {message_json}")
-            server.send_message(
-                client,
-                json.dumps({"error": "Message must contain 'type' and 'data' fields"}),
-            )
-            return
+    def process_command(self, command):
+        """Process a text command and execute the appropriate action"""
+        for pattern, handler in self.command_patterns.items():
+            match = re.match(pattern, command)
+            if match:
+                try:
+                    return handler(*match.groups())
+                except Exception as e:
+                    error_msg = f"Error executing command: {command}. Error: {str(e)}"
+                    logging.error(error_msg)
+                    return False, error_msg
 
-        message_type, message_data = message_json["type"], message_json["data"]
-
-        # Handle debug messages
-        if message_type == "debug":
-            logging.debug(message_data)
-
-        # Handle controller actions / perform valid actions on guest VM
-        elif message_type in self.controller.actions:
-            self.controller.actions[message_type](**message_data)
-        else:
-            logging.error(f"Unknown message type: {message_type}")
+        return False, f"Unknown command format: {command}"
 
     def run(self):
         logging.info(f"Websocket server started on {self.host}:{self.port}")
