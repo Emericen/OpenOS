@@ -3,9 +3,9 @@ import socket
 from datetime import datetime
 from services.log_setup import setup_logging
 from services.constants import (
-    VALID_QEMU_KEYS,
-    VALID_QEMU_MOUSE_BUTTONS,
-    VALID_QEMU_MOUSE_SCROLL_BUTTONS,
+    KEY_MAPPING,
+    MOUSE_BUTTON_MAPPING,
+    SCROLL_MAPPING,
 )
 
 logging = setup_logging()
@@ -34,46 +34,10 @@ class Controller:
         logging.info(f"QMP connected to {self.qmp_host}:{self.qmp_port}")
         logging.info(f"QMP capabilities: {response}")
 
-        # Map out all available actions
-        self.actions = {
-            "mouse_btn_down": self.mouse_btn_down,
-            "mouse_btn_up": self.mouse_btn_up,
-            "mouse_position": self.mouse_position,
-            "mouse_scroll": self.mouse_scroll,
-            "keyboard_key_down": self.keyboard_key_down,
-            "keyboard_key_up": self.keyboard_key_up,
-            "screenshot": self.screenshot,
-        }
-
-    def mouse_btn_down(self, btn: str):
-        if not btn in VALID_QEMU_MOUSE_BUTTONS:
-            return
-
-        _ = self._send_to_qmp_socket(
-            {
-                "execute": "input-send-event",
-                "arguments": {
-                    "events": [{"type": "btn", "data": {"down": True, "button": btn}}]
-                },
-            }
-        )
-
-    def mouse_btn_up(self, btn: str):
-        if not btn in VALID_QEMU_MOUSE_BUTTONS:
-            return
-
-        _ = self._send_to_qmp_socket(
-            {
-                "execute": "input-send-event",
-                "arguments": {
-                    "events": [{"type": "btn", "data": {"down": False, "button": btn}}]
-                },
-            }
-        )
-
-    def mouse_position(self, x: int, y: int):
+    def handle_mouse_move(self, x, y):
+        x, y = int(x), int(y)
         if not 0 <= x <= 32767 or not 0 <= y <= 32767:
-            return
+            return False, f"Mouse coordinates out of range: {x}, {y}"
 
         _ = self._send_to_qmp_socket(
             {
@@ -86,23 +50,65 @@ class Controller:
                 },
             }
         )
+        return True, None
 
-    def mouse_scroll(self, btn: str):
-        if not btn in VALID_QEMU_MOUSE_SCROLL_BUTTONS:
-            return
+    def handle_mouse_down(self, button):
+        if button not in MOUSE_BUTTON_MAPPING:
+            return False, f"Invalid mouse button: {button}"
+
+        qemu_button = MOUSE_BUTTON_MAPPING[button]
 
         _ = self._send_to_qmp_socket(
             {
                 "execute": "input-send-event",
                 "arguments": {
-                    "events": [{"type": "btn", "data": {"down": True, "button": btn}}]
+                    "events": [
+                        {"type": "btn", "data": {"down": True, "button": qemu_button}}
+                    ]
                 },
             }
         )
+        return True, None
 
-    def keyboard_key_down(self, key: str):
-        if not key in VALID_QEMU_KEYS:
-            return
+    def handle_mouse_up(self, button):
+        if button not in MOUSE_BUTTON_MAPPING:
+            return False, f"Invalid mouse button: {button}"
+
+        qemu_button = MOUSE_BUTTON_MAPPING[button]
+
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [
+                        {"type": "btn", "data": {"down": False, "button": qemu_button}}
+                    ]
+                },
+            }
+        )
+        return True, None
+
+    def handle_scroll(self, direction):
+        if direction not in SCROLL_MAPPING:
+            return False, f"Invalid scroll direction: {direction}"
+
+        qemu_button = SCROLL_MAPPING[direction]
+
+        _ = self._send_to_qmp_socket(
+            {
+                "execute": "input-send-event",
+                "arguments": {
+                    "events": [{"type": "btn", "data": {"down": True, "button": qemu_button}}]
+                },
+            }
+        )
+        return True, None
+
+    def handle_key_down(self, key):
+        if key not in KEY_MAPPING:
+            return False, f"Invalid key: {key}"
+
+        qemu_key = KEY_MAPPING[key]
 
         _ = self._send_to_qmp_socket(
             {
@@ -113,17 +119,20 @@ class Controller:
                             "type": "key",
                             "data": {
                                 "down": True,
-                                "key": {"type": "qcode", "data": key},
+                                "key": {"type": "qcode", "data": qemu_key},
                             },
                         }
                     ]
                 },
             }
         )
+        return True, None
 
-    def keyboard_key_up(self, key: str):
-        if not key in VALID_QEMU_KEYS:
-            return
+    def handle_key_up(self, key):
+        if key not in KEY_MAPPING:
+            return False, f"Invalid key: {key}"
+
+        qemu_key = KEY_MAPPING[key]
 
         _ = self._send_to_qmp_socket(
             {
@@ -134,15 +143,16 @@ class Controller:
                             "type": "key",
                             "data": {
                                 "down": False,
-                                "key": {"type": "qcode", "data": key},
+                                "key": {"type": "qcode", "data": qemu_key},
                             },
                         }
                     ]
                 },
             }
         )
+        return True, None
 
-    def screenshot(self, filename: str = None, file_format: str = "png"):
+    def handle_screenshot(self, filename=None, file_format="png"):
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
             filename = f"screenshot_{timestamp}.{file_format}"
@@ -156,9 +166,9 @@ class Controller:
                 "arguments": {"filename": filename, "format": file_format},
             }
         )
+        return True, None
 
     def _send_to_qmp_socket(self, data: dict) -> dict:
         self.qmp_socket.sendall(json.dumps(data).encode() + b"\n")
         response = self.qmp_socket.recv(1024).decode()
-        logging.debug(f"QMP {data} response: {response}")
         return response

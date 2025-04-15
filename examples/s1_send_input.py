@@ -1,45 +1,46 @@
 import sys
 import time
-import json
 import websocket
 
 
 def move_mouse(ws: websocket.WebSocket, x: int, y: int):
-    ws.send(json.dumps({"type": "mouse_position", "data": {"x": x, "y": y}}))
+    # Convert from percentage to absolute coordinates
+    x_abs, y_abs = int(x / 100 * 32767), int(y / 100 * 32767)
+    ws.send(f"MOUSE MOVE {x_abs} {y_abs}")
 
 
 def type_letter(ws: websocket.WebSocket, letter: str, capitalize: bool = False):
     if capitalize:
-        ws.send(json.dumps({"type": "keyboard_key_down", "data": {"key": "shift"}}))
+        ws.send("KEY DOWN SHIFT")
         time.sleep(0.01)
-    ws.send(json.dumps({"type": "keyboard_key_down", "data": {"key": letter}}))
+    ws.send(f"KEY DOWN {letter}")
     time.sleep(0.01)
-    ws.send(json.dumps({"type": "keyboard_key_up", "data": {"key": letter}}))
+    ws.send(f"KEY UP {letter.upper()}")
     if capitalize:
-        ws.send(json.dumps({"type": "keyboard_key_up", "data": {"key": "shift"}}))
+        ws.send("KEY UP SHIFT")
     time.sleep(0.05)
 
 
 def scroll_down(ws: websocket.WebSocket):
-    ws.send(json.dumps({"type": "mouse_scroll", "data": {"btn": "wheel-down"}}))
+    ws.send("SCROLL DOWN")
     time.sleep(0.05)
 
 
 def scroll_up(ws: websocket.WebSocket):
-    ws.send(json.dumps({"type": "mouse_scroll", "data": {"btn": "wheel-up"}}))
+    ws.send("SCROLL UP")
     time.sleep(0.05)
 
 
 def view_frame(ws: websocket.WebSocket):
-    ws.send(json.dumps({"type": "screenshot", "data": {}}))
+    ws.send("SCREENSHOT")
 
 
 if __name__ == "__main__":
 
-    ws_url = "ws://localhost:8007"
-    ws = websocket.WebSocket(enable_multithread=True)
-    ws.settimeout(10)
-    ws.connect(ws_url, timeout=10)
+    guest_url = "ws://localhost:8007"
+    guest = websocket.WebSocket(enable_multithread=True)
+    guest.settimeout(10)
+    guest.connect(guest_url, timeout=10)
 
     """
     USAGE GUIDE
@@ -85,28 +86,27 @@ if __name__ == "__main__":
 
     if sys.argv[1] == "mouse":
         x, y = int(sys.argv[2]), int(sys.argv[3])
-        x, y = int(x / 100 * 32767), int(y / 100 * 32767)
-        move_mouse(ws, x, y)
+        move_mouse(guest, x, y)
     elif sys.argv[1] == "scroll":
         if sys.argv[2] == "down":
-            scroll_down(ws)
+            scroll_down(guest)
         elif sys.argv[2] == "up":
-            scroll_up(ws)
+            scroll_up(guest)
     elif sys.argv[1] == "type":
-        type_letter(ws, "h")
-        type_letter(ws, "e")
-        type_letter(ws, "l")
-        type_letter(ws, "l")
-        type_letter(ws, "o")
-        type_letter(ws, "spc")
-        type_letter(ws, "b")
-        type_letter(ws, "i")
-        type_letter(ws, "t")
-        type_letter(ws, "c")
-        type_letter(ws, "h")
-        type_letter(ws, "spc")
-        type_letter(ws, "semicolon", capitalize=True)
-        type_letter(ws, "0", capitalize=True)
+        type_letter(guest, "H", capitalize=True)
+        type_letter(guest, "E")
+        type_letter(guest, "L")
+        type_letter(guest, "L")
+        type_letter(guest, "O")
+        type_letter(guest, "SPACE")
+        type_letter(guest, "B")
+        type_letter(guest, "I")
+        type_letter(guest, "T")
+        type_letter(guest, "C")
+        type_letter(guest, "H")
+        type_letter(guest, "SPACE")
+        type_letter(guest, "SEMICOLON", capitalize=True)
+        type_letter(guest, "0", capitalize=True)
 
     time.sleep(0.1)
-    view_frame(ws)
+    view_frame(guest)
