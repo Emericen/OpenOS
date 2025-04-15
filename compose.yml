@@ -13,8 +13,12 @@ services:
     cap_add:
       - NET_ADMIN
     ports:
+<<<<<<< HEAD
       - 8006:8006
       - 8007:8007
+=======
+      - "8006:8006"
+>>>>>>> 03b428e (remove unused ports)
     volumes:
       - ./storage:/storage
     restart: always
