@@ -7,6 +7,7 @@ mouse/keyboard input, and VM lifecycle management.
 
 import json
 import socket
+import threading
 import time
 from pathlib import Path
 
@@ -18,6 +19,7 @@ class QMPClient:
         self.host = host
         self.port = port
         self._sock: socket.socket | None = None
+        self._lock = threading.Lock()
 
     def connect(self, retries: int = 30, delay: float = 2.0):
         """Connect to QMP and negotiate capabilities."""
@@ -49,11 +51,12 @@ class QMPClient:
 
     def execute(self, command: str, arguments: dict | None = None) -> dict:
         """Execute a QMP command and return the response."""
-        msg = {"execute": command}
-        if arguments:
-            msg["arguments"] = arguments
-        self._send(msg)
-        return self._read_response()
+        with self._lock:
+            msg = {"execute": command}
+            if arguments:
+                msg["arguments"] = arguments
+            self._send(msg)
+            return self._read_response()
 
     def hmp(self, command_line: str) -> str:
         """Execute an HMP command via QMP and return the output string."""
@@ -171,18 +174,30 @@ class QMPClient:
         self._sock.sendall(raw)
 
     def _read_response(self) -> dict:
+        """Read from socket, skip async events, return the next command response."""
         buf = b""
         while True:
             chunk = self._sock.recv(4096)
             if not chunk:
                 raise ConnectionError("QMP connection closed")
             buf += chunk
-            try:
-                resp = json.loads(buf.decode())
+            # QMP may send multiple JSON objects in one chunk
+            text = buf.decode(errors="replace")
+            for line in text.split("\n"):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    resp = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                # Skip async events
+                if "event" in resp:
+                    continue
                 if "error" in resp:
                     raise RuntimeError(
                         f"QMP error: {resp['error'].get('desc', resp['error'])}"
                     )
                 return resp
-            except json.JSONDecodeError:
-                continue
+            # All parsed lines were events — keep reading
+            buf = b""
