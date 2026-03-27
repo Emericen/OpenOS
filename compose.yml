@@ -1,0 +1,22 @@
+services:
+  openos:
+    build: .
+    container_name: openos
+    devices:
+      - /dev/kvm
+    cap_add:
+      - NET_ADMIN
+    ports:
+      - "8006:8006"   # NoVNC web UI
+      - "8100:8100"   # OpenOS API
+    volumes:
+      - openos-storage:/storage
+    environment:
+      BOOT: "ubuntu"
+      RAM_SIZE: "4G"
+      CPU_CORES: "2"
+      DISK_SIZE: "64G"
+    stop_grace_period: 2m
+
+volumes:
+  openos-storage:
