@@ -9,6 +9,10 @@ set -Eeuo pipefail
 : "${API_PORT:="8100"}"
 : "${QMP_PORT:="4444"}"
 
+# Tell upstream networking to exclude API and QMP ports from VM DNAT
+HOST_PORTS="${HOST_PORTS:+$HOST_PORTS,}$API_PORT,$QMP_PORT"
+export HOST_PORTS
+
 cd /run
 
 . start.sh      # Startup hook
